@@ -15,6 +15,7 @@ The stack includes:
 * **Kubernetes-ready, Minikube-friendly**
 
 # Delpoy:
+create new folder and run: git clone https://github.com/idan006/UnityShop.git
 open command prompt and run:
 cd [project_root_dir]
 chmod +x prereuisites.sh
