@@ -68,7 +68,7 @@ load:
 # ===================================================================
 # Deploy UnityExpress Shop
 # ===================================================================
-deploy:
+deploy: build load
 	@echo "$(BLUE)==> Ensuring required CRDs exist...$(NC)"
 	kubectl get crd scaledobjects.keda.sh >/dev/null 2>&1 || \
 	    kubectl apply -f https://raw.githubusercontent.com/kedacore/keda/v2.14.0/config/crd/bases/keda.sh_scaledobjects.yaml
@@ -129,7 +129,7 @@ logs:
 # ===================================================================
 smoke:
 	@echo "$(YELLOW)==> Running Smoke Test...$(NC)"
-	$(PYTHON) ./scripts/smoke_test.py
+	$(PYTHON) ./scripts/smoke_test.py || { echo "$(RED)Smoke test failed$(NC)"; exit 1; }
 	@echo "$(GREEN)Smoke test executed.$(NC)"
 
 # ===================================================================

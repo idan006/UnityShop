@@ -1,9 +1,15 @@
-const API_BASE = "http://192.168.59.133:30030/api";
+// =========================================================
+//  Dynamic API base – works on ANY computer
+//  Routed through the NGINX Gateway automatically
+// =========================================================
+const API_BASE = "/api";
 
 const toastEl = document.getElementById("toast");
 const tableBody = document.getElementById("tableBody");
 
+// ---------------------------------------------------------
 // Toast helper
+// ---------------------------------------------------------
 function toast(message, color = "#43a047") {
   toastEl.style.background = color;
   toastEl.textContent = message;
@@ -12,7 +18,10 @@ function toast(message, color = "#43a047") {
   setTimeout(() => (toastEl.style.opacity = 0), 2200);
 }
 
+// ---------------------------------------------------------
 // API helper
+// Uses dynamic relative path: /api/... (no static IP!)
+// ---------------------------------------------------------
 async function api(method, endpoint, body) {
   try {
     const res = await fetch(`${API_BASE}${endpoint}`, {
@@ -21,36 +30,47 @@ async function api(method, endpoint, body) {
       body: body ? JSON.stringify(body) : undefined
     });
 
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("API ERROR:", errText);
+      throw new Error(errText);
+    }
+
     return res.json();
   } catch (err) {
+    console.error("API CALL FAILED:", err);
     toast("API ERROR", "red");
-    console.error(err);
     throw err;
   }
 }
 
+// ---------------------------------------------------------
 // RENDER TABLE
+// ---------------------------------------------------------
 function renderTable(purchases) {
-  if (!purchases.length) {
-    tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#777">No data</td></tr>`;
+  if (!purchases || purchases.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="4" style="text-align:center;color:#777">No data</td>
+      </tr>`;
     return;
   }
 
   tableBody.innerHTML = purchases
-    .map(
-      (p) => `
-    <tr>
-      <td>${p.username}</td>
-      <td>${p.userid}</td>
-      <td>${p.price}</td>
-      <td>${new Date(p.timestamp).toLocaleString()}</td>
-    </tr>`
+    .map(p => `
+      <tr>
+        <td>${p.username}</td>
+        <td>${p.userid}</td>
+        <td>${p.price}</td>
+        <td>${new Date(p.timestamp).toLocaleString()}</td>
+      </tr>`
     )
     .join("");
 }
 
+// ---------------------------------------------------------
 // BUY BUTTON
+// ---------------------------------------------------------
 document.getElementById("buyBtn").addEventListener("click", async () => {
   const username = document.getElementById("username").value.trim();
   const userid = document.getElementById("userid").value.trim();
@@ -63,30 +83,36 @@ document.getElementById("buyBtn").addEventListener("click", async () => {
   try {
     await api("POST", "/purchases", { username, userid, price });
     toast("Purchase added!");
-
-    // Auto-refresh table
     loadPurchases();
-  } catch (err) {}
+  } catch {}
 });
 
+// ---------------------------------------------------------
 // GET ALL BUTTON
+// ---------------------------------------------------------
 document.getElementById("getAllBtn").addEventListener("click", async () => {
   loadPurchases();
   toast("Loaded purchases");
 });
 
-// Load purchases
+// ---------------------------------------------------------
+// LOAD PURCHASES
+// ---------------------------------------------------------
 async function loadPurchases() {
   try {
     const data = await api("GET", "/purchases");
     renderTable(data.purchases);
-  } catch (err) {}
+  } catch {}
 }
 
-// Dark mode toggle
+// ---------------------------------------------------------
+// DARK MODE
+// ---------------------------------------------------------
 document.getElementById("darkModeToggle").addEventListener("click", () => {
   document.body.classList.toggle("dark");
 });
 
-// Auto-load on startup
+// ---------------------------------------------------------
+// AUTO LOAD ON START
+// ---------------------------------------------------------
 loadPurchases();
