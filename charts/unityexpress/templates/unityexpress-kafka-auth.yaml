@@ -1,0 +1,16 @@
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: unityexpress-kafka-auth
+  namespace: unityexpress
+spec:
+  secretTargetRef:
+    - parameter: bootstrapServers
+      name: kafka-secret
+      key: bootstrapServers
+    - parameter: sasl
+      name: kafka-secret
+      key: sasl
+    - parameter: tls
+      name: kafka-secret
+      key: tls

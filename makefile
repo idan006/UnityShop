@@ -50,10 +50,25 @@ NS := unityexpress
 # -----------------------------
 CHART := ./charts/unityexpress
 
+IMAGES := unityexpress-api:local unityexpress-web:local
+
+build:
+	@echo "$(BLUE)==> Building Docker images locally$(NC)"
+	docker build -t unityexpress-api:local ./api
+	docker build -t unityexpress-web:local ./web
+
+load:
+	@echo "$(BLUE)==> Loading local images into Minikube$(NC)"
+	for img in $(IMAGES); do \
+		echo "Loading $$img ..."; \
+		minikube image load $$img; \
+	done
+	@echo "$(GREEN)Images successfully loaded into Minikube.$(NC)"
+	
 # ===================================================================
 # Deploy UnityExpress
 # ===================================================================
-deploy:
+deploy: build load
 	@echo "$(BLUE)==> Deploying UnityExpress...$(NC)"
 	helm upgrade --install unityexpress $(CHART) -n $(NS) --create-namespace
 	@echo "$(GREEN)Deployment completed.$(NC)"
@@ -92,8 +107,7 @@ logs:
 # ===================================================================
 smoke:
 	@echo "$(YELLOW)==> Running Smoke Test...$(NC)"
-	# **IMPORTANT**: Ensure the script file name is correct (e.g., smoke-test.py vs smoke_test.py)
-	$(PYTHON) ./scripts/smoke-test.py
+	$(PYTHON) ./scripts/smoke_test.py
 	@echo "$(GREEN)Smoke test executed.$(NC)"
 
 # ===================================================================

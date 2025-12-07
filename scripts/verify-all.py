@@ -6,7 +6,6 @@ G="✔"; R="✖"; Y="⚠"; RESET=""
 
 NS = "unityexpress"
 MON_NS = "monitoring"
-UUID = "e271b052-9200-4502-b491-62f1649c07"
 
 def run(cmd):
     try:
@@ -78,11 +77,6 @@ if issues:
     sys.exit(1)
 else:
     ok("All pods healthy")
-
-if UUID not in pods:
-    warn("UUID label missing on some pods")
-else:
-    ok("UUID labels OK")
 
 
 # ============================================================

@@ -5,25 +5,23 @@ metadata:
   namespace: unityexpress
 spec:
   scaleTargetRef:
-    kind: Deployment
     name: unityexpress-api
+    kind: Deployment
+
+  pollingInterval: 5
+  cooldownPeriod: 30
 
   minReplicaCount: 1
   maxReplicaCount: 10
 
-  cooldownPeriod: 30
-  pollingInterval: 15
-
   triggers:
-    # ---------------------------------------------------------
-    # Kafka autoscaling trigger
-    # ---------------------------------------------------------
     - type: kafka
       metadata:
-        bootstrapServers: unityexpress-kafka.unityexpress.svc.cluster.local:9092
-        consumerGroup: unityexpress-group
+        # Use secret-managed broker
+        bootstrapServersFromEnv: bootstrapServers
         topic: purchases
-        lagThreshold: "10"
+        consumerGroup: unityexpress-consumer
+        lagThreshold: "5"
 
       authenticationRef:
         name: unityexpress-kafka-auth

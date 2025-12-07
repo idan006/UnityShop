@@ -18,20 +18,48 @@ spec:
         - name: api
           image: unityexpress-api:local
           imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
           env:
+            # ------------------------
+            # API PORT
+            # ------------------------
             - name: PORT
               value: "3000"
+
+            # ------------------------
+            # MongoDB
+            # ------------------------
             - name: MONGO_URI
               value: "mongodb://unityexpress-mongo:27017/unityexpress"
-            - name: KAFKA_BROKERS
-              value: "unityexpress-kafka:9092"
+
+            # ------------------------
+            # Kafka (App Settings)
+            # ------------------------
             - name: KAFKA_TOPIC
               value: "purchases"
             - name: KAFKA_CLIENT_ID
               value: "unityexpress-api"
             - name: KAFKA_GROUP_ID
               value: "unityexpress-group"
-            - name: KAFKA_CONSUMER_GROUP
-              value: "unityexpress-consumers"
-          ports:
-            - containerPort: 3000
+
+            # ------------------------
+            # Kafka (Injected by Secret)
+            # ------------------------
+            - name: KAFKA_BROKERS
+              valueFrom:
+                secretKeyRef:
+                  name: kafka-secret
+                  key: bootstrapServers
+
+            - name: KAFKA_SASL_ENABLED
+              valueFrom:
+                secretKeyRef:
+                  name: kafka-secret
+                  key: sasl
+
+            - name: KAFKA_TLS_ENABLED
+              valueFrom:
+                secretKeyRef:
+                  name: kafka-secret
+                  key: tls
