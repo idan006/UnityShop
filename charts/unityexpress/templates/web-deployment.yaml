@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unityexpress-web
+  labels:
+    app: unityexpress-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: unityexpress-web
+  template:
+    metadata:
+      labels:
+        app: unityexpress-web
+    spec:
+      containers:
+        - name: web
+          image: unityexpress-web:local
+          ports:
+            - containerPort: 80

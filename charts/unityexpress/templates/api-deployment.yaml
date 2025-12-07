@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unityexpress-api
+  labels:
+    app: unityexpress-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: unityexpress-api
+  template:
+    metadata:
+      labels:
+        app: unityexpress-api
+    spec:
+      containers:
+        - name: api
+          image: unityexpress-api:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PORT
+              value: "3000"
+            - name: MONGO_URI
+              value: "mongodb://unityexpress-mongo:27017/unityexpress"
+            - name: KAFKA_BROKERS
+              value: "unityexpress-kafka:9092"
+            - name: KAFKA_TOPIC
+              value: "purchases"
+            - name: KAFKA_CLIENT_ID
+              value: "unityexpress-api"
+            - name: KAFKA_GROUP_ID
+              value: "unityexpress-group"
+            - name: KAFKA_CONSUMER_GROUP
+              value: "unityexpress-consumers"
+          ports:
+            - containerPort: 3000

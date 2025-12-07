@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: unityexpress-api-sm
+  labels:
+    release: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.namespace | default "unityexpress" }}
+  selector:
+    matchLabels:
+      app: unityexpress-api
+  endpoints:
+    - port: http
+      interval: 10s
+      path: /metrics

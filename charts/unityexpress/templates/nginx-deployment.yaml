@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unityexpress-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: unityexpress-gateway
+  template:
+    metadata:
+      labels:
+        app: unityexpress-gateway
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:stable
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: unityexpress-nginx-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: unityexpress-gateway
+spec:
+  type: NodePort
+  selector:
+    app: unityexpress-gateway
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30090

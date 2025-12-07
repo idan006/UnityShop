@@ -1,0 +1,6 @@
+apiVersion: v2
+name: unityexpress
+description: UnityExpress shop – API + Web + Mongo + Kafka
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

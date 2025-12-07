@@ -1,0 +1,14 @@
+rules:
+  default: false
+  custom:
+    - seriesQuery: 'http_request_duration_seconds_sum{namespace!="",pod!=""}'
+      resources:
+        overrides:
+          namespace: { resource: "namespace" }
+          pod: { resource: "pod" }
+      name:
+        as: "request_latency_seconds"
+      metricsQuery: |
+        sum(rate(http_request_duration_seconds_sum{<<.LabelMatchers>>}[1m]))
+        /
+        sum(rate(http_request_duration_seconds_count{<<.LabelMatchers>>}[1m]))

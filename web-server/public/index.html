@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>UnityExpress Shop By Idan Agam</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <header>
+    <h1>UnityExpress Shop</h1>
+    <button id="darkModeToggle">🌙</button>
+  </header>
+
+  <section id="formSection">
+    <h2>Create Purchase</h2>
+
+    <label>Username</label>
+    <input id="username" placeholder="Enter username">
+
+    <label>User ID</label>
+    <input id="userid" placeholder="Enter user ID">
+
+    <label>Price</label>
+    <input id="price" type="number" placeholder="Enter price">
+
+    <div id="btnRow">
+      <button id="buyBtn" class="primary">BUY</button>
+      <button id="getAllBtn" class="secondary">GET ALL PURCHASES</button>
+    </div>
+  </section>
+
+  <section id="tableSection">
+    <h2>Purchase History</h2>
+    <table id="purchaseTable">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>User ID</th>
+          <th>Price</th>
+          <th>Timestamp</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="4" style="text-align:center;color:#777">No data</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <div id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
