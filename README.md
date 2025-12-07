@@ -91,6 +91,7 @@ NOTE: we can use Vertical autoscaling for lower costs
 10. ArgoCD per cluster 
 11. Seacrets managment (like AWS Secrets Manager or HashiCorp Vault)
 12. Helm Chart Optimization and adding Karpenter 
+13. Use GitHub Actions
 
 
 

@@ -54,8 +54,8 @@ IMAGES := unityexpress-api:local unityexpress-web:local
 
 build:
 	@echo "$(BLUE)==> Building Docker images locally$(NC)"
-	docker build -t unityexpress-api:local ./api
-	docker build -t unityexpress-web:local ./web
+	docker build -t unityexpress-api:local ./api-server
+	docker build -t unityexpress-web:local ./web-server
 
 load:
 	@echo "$(BLUE)==> Loading local images into Minikube$(NC)"
@@ -66,12 +66,34 @@ load:
 	@echo "$(GREEN)Images successfully loaded into Minikube.$(NC)"
 	
 # ===================================================================
-# Deploy UnityExpress
+# Deploy UnityExpress Shop
 # ===================================================================
-deploy: build load
-	@echo "$(BLUE)==> Deploying UnityExpress...$(NC)"
+deploy:
+	@echo "$(BLUE)==> Ensuring required CRDs exist...$(NC)"
+	kubectl get crd scaledobjects.keda.sh >/dev/null 2>&1 || \
+	    kubectl apply -f https://raw.githubusercontent.com/kedacore/keda/v2.14.0/config/crd/bases/keda.sh_scaledobjects.yaml
+	kubectl get crd triggerauthentications.keda.sh >/dev/null 2>&1 || \
+	    kubectl apply -f https://raw.githubusercontent.com/kedacore/keda/v2.14.0/config/crd/bases/keda.sh_triggerauthentications.yaml
+	kubectl get crd clustertriggerauthentications.keda.sh >/dev/null 2>&1 || \
+	    kubectl apply -f https://raw.githubusercontent.com/kedacore/keda/v2.14.0/config/crd/bases/keda.sh_clustertriggerauthentications.yaml
+	kubectl get crd servicemonitors.monitoring.coreos.com >/dev/null 2>&1 || \
+	    kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.74.0/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
+	kubectl get crd podmonitors.monitoring.coreos.com >/dev/null 2>&1 || \
+	    kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.74.0/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml
+	@echo "$(GREEN)[OK] CRDs confirmed.$(NC)"
+
+	@echo "$(BLUE)==> Loading local Docker images into Minikube$(NC)"
+	for img in unityexpress-api:local unityexpress-web:local; do \
+	  echo "Loading $$img ..."; \
+	  minikube image load $$img || true; \
+	done
+
+	@echo "$(GREEN)Images loaded.$(NC)"
+
+	@echo "$(BLUE)==> Deploying UnityExpress via Helm$(NC)"
 	helm upgrade --install unityexpress $(CHART) -n $(NS) --create-namespace
-	@echo "$(GREEN)Deployment completed.$(NC)"
+	@echo "$(GREEN)Deploy complete.$(NC)"
+
 
 # ===================================================================
 # Destroy environment
