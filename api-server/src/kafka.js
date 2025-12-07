@@ -1,66 +1,92 @@
+// api-server/src/kafka.js
 const { Kafka } = require("kafkajs");
 const { config } = require("./config");
 
-let kafka;
-let producer;
-let consumer;
+let kafka = null;
+let producer = null;
+let consumer = null;
+let kafkaReady = false;
+let connecting = false;
 
+// ---------------------------------------------
+// Lazy init
+// ---------------------------------------------
 function initKafka() {
-  if (kafka) return; // Already initialized
+  if (kafka) return;
 
   kafka = new Kafka({
     clientId: config.kafkaClientId,
-    brokers: config.kafkaBrokers
+    brokers: config.kafkaBrokers,
+    connectionTimeout: 5000,
+    requestTimeout: 5000
   });
 
   producer = kafka.producer();
   consumer = kafka.consumer({ groupId: config.kafkaGroupId });
 }
 
-async function startKafka() {
-  initKafka();
+// ---------------------------------------------
+// Safe connect (non-fatal)
+// ---------------------------------------------
+async function tryConnectKafka() {
+  if (connecting || kafkaReady) return;
+  connecting = true;
 
-  console.log("[Kafka] Starting...");
-  console.log("[Kafka] groupId =", config.kafkaGroupId);
+  try {
+    initKafka();
 
-  await producer.connect();
-  console.log("[Kafka] Producer connected");
+    console.log("[Kafka] Connecting...");
+    await producer.connect();
+    await consumer.connect();
 
-  await consumer.connect();
-  console.log("[Kafka] Consumer connected");
+    await consumer.subscribe({
+      topic: config.kafkaTopic,
+      fromBeginning: true
+    });
 
-  await consumer.subscribe({
-    topic: config.kafkaTopic,
-    fromBeginning: true
-  });
-
-  console.log("[Kafka] Subscribed to topic:", config.kafkaTopic);
-
-  await consumer.run({
-    eachMessage: async ({ message }) => {
-      try {
-        const payload = JSON.parse(message.value.toString());
-        console.log("[Kafka] Consumed message:", payload);
-      } catch (err) {
-        console.error("[Kafka] Failed processing message:", err.message);
+    consumer.run({
+      eachMessage: async ({ message }) => {
+        try {
+          console.log("[Kafka] Consumed:", message.value.toString());
+        } catch (err) {
+          console.error("[Kafka] Consume error:", err.message);
+        }
       }
-    }
-  });
+    });
+
+    kafkaReady = true;
+    console.log("[Kafka] READY");
+  } catch (err) {
+    console.warn("[Kafka] Connection failed (non-fatal):", err.message);
+  }
+
+  connecting = false;
 }
 
+// Background retry every 10s
+setInterval(tryConnectKafka, 10000).unref();
+tryConnectKafka();
+
+// ---------------------------------------------
+// SAFE publish — never throws
+// ---------------------------------------------
 async function publishPurchase(purchase) {
   initKafka();
 
-  if (!producer) {
-    throw new Error("Kafka producer not initialized");
+  if (!kafkaReady) {
+    console.warn("[Kafka] Not ready — skipping publish");
+    return;
   }
 
-  await producer.send({
-    topic: config.kafkaTopic,
-    messages: [{ value: JSON.stringify(purchase) }]
-  });
-
-  console.log("[Kafka] Published:", purchase);
+  try {
+    await producer.send({
+      topic: config.kafkaTopic,
+      messages: [{ value: JSON.stringify(purchase) }]
+    });
+    console.log("[Kafka] Published:", purchase._id);
+  } catch (err) {
+    console.warn("[Kafka] Publish failed (non-fatal):", err.message);
+  }
 }
 
-module.exports = { startKafka, publishPurchase };
+module.exports = { publishPurchase };

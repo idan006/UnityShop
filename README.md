@@ -96,6 +96,7 @@ NOTE: we can use Vertical autoscaling for lower costs
 15. UI additions: Add caching headers, Add gzip, Add rate-limit, Add JWT-based auth at gateway, Add retries / timeouts in NGINX, Add blue-green NGINX config for canary deployments
 16. Optimive Docker caching
 17. Add test coverage badges
+18. upgrade Kafka to full HA with graceful degradation
 
 
 ## CI\CD:

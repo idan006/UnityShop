@@ -1,53 +1,44 @@
+// api-server/src/routes.js
 const express = require("express");
 const router = express.Router();
 const { Purchase } = require("./mongo");
 const { publishPurchase } = require("./kafka");
 
-// POST /purchases
+// ------------------------------------------------------------
+// CREATE purchase
+// ------------------------------------------------------------
 router.post("/purchases", async (req, res) => {
   try {
-    const { username, userid, price, timestamp } = req.body;
+    const purchase = await Purchase.create({
+      username: req.body.username,
+      userid: req.body.userid,
+      price: req.body.price,
+      timestamp: new Date()
+    });
 
-    if (!username || !userid || price == null) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
+    // Fire-and-forget Kafka (NEVER awaited)
+    publishPurchase(purchase).catch(err =>
+      console.warn("[Kafka] Publish skipped:", err.message)
+    );
 
-    // Safe timestamp handling
-    let finalTimestamp;
-    if (timestamp && !isNaN(new Date(timestamp).valueOf())) {
-      finalTimestamp = new Date(timestamp);
-    } else {
-      finalTimestamp = new Date();
-    }
-
-    const purchaseData = {
-      username,
-      userid,
-      price: Number(price),
-      timestamp: finalTimestamp
-    };
-
-    const doc = new Purchase(purchaseData);
-    await doc.save();
-
-    await publishPurchase(purchaseData);
-
-    return res.status(201).json({ ok: true, purchase: doc });
+    res.status(201).json({ ok: true, purchase });
   } catch (err) {
     console.error("[API] POST /purchases error:", err);
-    return res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// GET /purchases
-router.get("/purchases", async (_req, res) => {
+// ------------------------------------------------------------
+// GET purchases
+// ------------------------------------------------------------
+router.get("/purchases", async (req, res) => {
   try {
-    const purchases = await Purchase.find().sort({ createdAt: -1 }).lean();
-    return res.json({ purchases });
+    const purchases = await Purchase.find().sort({ createdAt: -1 });
+    res.json({ purchases });
   } catch (err) {
     console.error("[API] GET /purchases error:", err);
-    return res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
-module.exports = { router };
+module.exports = router;
