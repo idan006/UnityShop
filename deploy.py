@@ -7,7 +7,6 @@ import shutil
 import time
 import webbrowser
 
-UUID = "e271b052-9200-4502-b491-62f1649c07"
 NAMESPACE = "unityexpress"
 HELM_CHART = "./charts/unityexpress"
 VALUES_FILE = "./charts/unityexpress/values-minikube.yaml"
@@ -265,7 +264,6 @@ if __name__ == "__main__":
 ===========================================================
  UnityExpress – One-Command Deployment Installer
  Kubernetes + Minikube (VirtualBox)
- UUID: {UUID}
 ===========================================================
 """)
 

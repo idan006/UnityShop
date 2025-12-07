@@ -88,6 +88,9 @@ NOTE: we can use Vertical autoscaling for lower costs
 7. Add local test dashboard (HTML coverage reports combined)
 8. Add failure notifications (Slack / Teams)
 9. Adding HTTPS (API+Web) and automatic renew certificates 
+10. ArgoCD per cluster 
+11. Seacrets managment (like AWS Secrets Manager or HashiCorp Vault)
+12. Helm Chart Optimization and adding Karpenter 
 
 
 

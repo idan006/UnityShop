@@ -1,0 +1,29 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: unityexpress-api-keda
+  namespace: unityexpress
+spec:
+  scaleTargetRef:
+    kind: Deployment
+    name: unityexpress-api
+
+  minReplicaCount: 1
+  maxReplicaCount: 10
+
+  cooldownPeriod: 30
+  pollingInterval: 15
+
+  triggers:
+    # ---------------------------------------------------------
+    # Kafka autoscaling trigger
+    # ---------------------------------------------------------
+    - type: kafka
+      metadata:
+        bootstrapServers: unityexpress-kafka.unityexpress.svc.cluster.local:9092
+        consumerGroup: unityexpress-group
+        topic: purchases
+        lagThreshold: "10"
+
+      authenticationRef:
+        name: unityexpress-kafka-auth
