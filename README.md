@@ -93,6 +93,7 @@ NOTE: we can use Vertical autoscaling for lower costs
 12. Helm Chart Optimization and adding Karpenter 
 13. Use GitHub Actions
 14. Add DNS record and LB with the DR site
+15. UI additions: Add caching headers, Add gzip, Add rate-limit, Add JWT-based auth at gateway, Add retries / timeouts in NGINX, Add blue-green NGINX config for canary deployments
 
 
 

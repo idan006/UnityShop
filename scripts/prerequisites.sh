@@ -236,6 +236,12 @@ start_minikube
 configure_docker
 ensure_dns_test
 
+log_info "Exposing Minikube services to localhost..."
+minikube tunnel >/dev/null 2>&1 &
+
+eval $(minikube docker-env --shell=bash)
+
+
 echo "============================================================"
 echo "   Prerequisites completed successfully"
 echo "============================================================"
@@ -247,3 +253,7 @@ echo "============================================================"
 echo ""
 echo "Run:  make deploy"
 echo ""
+
+echo "UI will be available at:  http://localhost:30090"
+echo "API willl be available at: http://localhost:30090/api"
+
