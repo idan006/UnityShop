@@ -4,9 +4,8 @@
 # ===================================================================
 
 # -----------------------------
-# Cross-platform Python detection
+# Python detection
 # -----------------------------
-# Checks: 1. python3, 2. python, 3. py (Windows launcher)
 PYTHON := $(shell \
 	if command -v python3 >/dev/null 2>&1; then echo python3; \
 	elif command -v python >/dev/null 2>&1; then echo python; \
@@ -19,7 +18,7 @@ $(error No Python interpreter found. Install Python before running make targets)
 endif
 
 # -----------------------------
-# Detect Jest test runner
+# Jest detection
 # -----------------------------
 JEST := $(shell \
 	if command -v npx >/dev/null 2>&1; then echo "npx jest"; \
@@ -27,12 +26,8 @@ JEST := $(shell \
 	else echo ""; fi \
 )
 
-ifeq ($(JEST),)
-$(warning Jest not found. Install with: npm install --save-dev jest)
-endif
-
 # -----------------------------
-# Colors (ANSI)
+# Colors (ANSI-safe using printf)
 # -----------------------------
 RED    := \033[0;31m
 GREEN  := \033[0;32m
@@ -46,30 +41,40 @@ NC     := \033[0m
 NS := unityexpress
 
 # -----------------------------
-# Helm Chart Path
+# Helm Chart
 # -----------------------------
 CHART := ./charts/unityexpress
 
+# -----------------------------
+# Docker images
+# -----------------------------
 IMAGES := unityexpress-api:local unityexpress-web:local
 
+# ===================================================================
+# Build Docker images
+# ===================================================================
 build:
-	@echo "$(BLUE)==> Building Docker images locally$(NC)"
+	@printf "$(BLUE)==> Building Docker images locally$(NC)\n"
 	docker build -t unityexpress-api:local ./api-server
 	docker build -t unityexpress-web:local ./web-server
+	@printf "$(GREEN)[OK] Build finished.$(NC)\n"
 
+# ===================================================================
+# Load images into Minikube
+# ===================================================================
 load:
-	@echo "$(BLUE)==> Loading local images into Minikube$(NC)"
-	for img in $(IMAGES); do \
-		echo "Loading $$img ..."; \
-		minikube image load $$img; \
+	@printf "$(BLUE)==> Loading local images into Minikube$(NC)\n"
+	@for img in $(IMAGES); do \
+		printf "Loading %s...\n" "$$img"; \
+		minikube image load $$img || true; \
 	done
-	@echo "$(GREEN)Images successfully loaded into Minikube.$(NC)"
-	
+	@printf "$(GREEN)[OK] Images loaded into Minikube.$(NC)\n"
+
 # ===================================================================
-# Deploy UnityExpress Shop
+# Ensure CRDs exist (KEDA + Prometheus Operator)
 # ===================================================================
-deploy: build load
-	@echo "$(BLUE)==> Ensuring required CRDs exist...$(NC)"
+ensure-crds:
+	@printf "$(BLUE)==> Ensuring required CRDs exist...$(NC)\n"
 	kubectl get crd scaledobjects.keda.sh >/dev/null 2>&1 || \
 	    kubectl apply -f https://raw.githubusercontent.com/kedacore/keda/v2.14.0/config/crd/bases/keda.sh_scaledobjects.yaml
 	kubectl get crd triggerauthentications.keda.sh >/dev/null 2>&1 || \
@@ -80,148 +85,115 @@ deploy: build load
 	    kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.74.0/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
 	kubectl get crd podmonitors.monitoring.coreos.com >/dev/null 2>&1 || \
 	    kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.74.0/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml
-	@echo "$(GREEN)[OK] CRDs confirmed.$(NC)"
+	@printf "$(GREEN)[OK] CRDs confirmed.$(NC)\n"
 
-	@echo "$(BLUE)==> Loading local Docker images into Minikube$(NC)"
-	for img in unityexpress-api:local unityexpress-web:local; do \
-	  echo "Loading $$img ..."; \
-	  minikube image load $$img || true; \
-	done
-
-	@echo "$(GREEN)Images loaded.$(NC)"
-
-	@echo "$(BLUE)==> Deploying UnityExpress via Helm$(NC)"
+# ===================================================================
+# Deploy UnityExpress (atomic: build → load → crds → helm)
+# ===================================================================
+deploy: build load ensure-crds
+	@printf "$(BLUE)==> Deploying UnityExpress via Helm$(NC)\n"
 	helm upgrade --install unityexpress $(CHART) -n $(NS) --create-namespace
-	@echo "$(GREEN)Deploy complete.$(NC)"
-
+	@printf "$(GREEN)Deploy complete.$(NC)\n"
 
 # ===================================================================
 # Destroy environment
 # ===================================================================
 destroy:
-	@echo "$(RED)==> Destroying UnityExpress...$(NC)"
+	@printf "$(RED)==> Destroying UnityExpress...$(NC)\n"
 	helm uninstall unityexpress -n $(NS) || true
 	kubectl delete namespace $(NS) --ignore-not-found=true
-	@echo "$(GREEN)Environment destroyed.$(NC)"
+	@printf "$(GREEN)Environment destroyed.$(NC)\n"
 
 # ===================================================================
 # Restart deployments
 # ===================================================================
 restart:
-	@echo "$(BLUE)==> Restarting all deployments in $(NS)...$(NC)"
+	@printf "$(BLUE)==> Restarting all deployments$(NC)\n"
 	kubectl rollout restart deploy -n $(NS)
-	@echo "$(GREEN)Restart completed.$(NC)"
+	@printf "$(GREEN)Restart completed.$(NC)\n"
 
 # ===================================================================
 # Logs
 # ===================================================================
 logs:
-	@echo "$(BLUE)==> Logs: unityexpress-api$(NC)"
+	@printf "$(BLUE)==> Logs: unityexpress-api$(NC)\n"
 	kubectl logs -n $(NS) deploy/unityexpress-api --tail=200 || true
-	@echo "$(BLUE)==> Logs: unityexpress-web$(NC)"
+	@printf "$(BLUE)==> Logs: unityexpress-web$(NC)\n"
 	kubectl logs -n $(NS) deploy/unityexpress-web --tail=200 || true
-	@echo "$(BLUE)==> Logs: unityexpress-kafka$(NC)"
+	@printf "$(BLUE)==> Logs: unityexpress-kafka$(NC)\n"
 	kubectl logs -n $(NS) deploy/unityexpress-kafka -c kafka --tail=200 || true
-	@echo "$(GREEN)Log output complete.$(NC)"
+	@printf "$(GREEN)Log output complete.$(NC)\n"
 
 # ===================================================================
 # Smoke Test
 # ===================================================================
 smoke:
-	@echo "$(YELLOW)==> Running Smoke Test...$(NC)"
-	$(PYTHON) ./scripts/smoke_test.py || { echo "$(RED)Smoke test failed$(NC)"; exit 1; }
-	@echo "$(GREEN)Smoke test executed.$(NC)"
+	@printf "$(YELLOW)==> Running Smoke Test...$(NC)\n"
+	$(PYTHON) ./scripts/smoke_test.py || { printf "$(RED)Smoke test FAILED$(NC)\n"; exit 1; }
+	@printf "$(GREEN)Smoke test passed.$(NC)\n"
 
 # ===================================================================
 # Health Test
 # ===================================================================
 health:
-	@echo "$(YELLOW)==> Running health verification...$(NC)"
+	@printf "$(YELLOW)==> Running health verification...$(NC)\n"
 	$(PYTHON) ./scripts/verify-health.py
-	@echo "$(GREEN)Health check completed.$(NC)"
+	@printf "$(GREEN)Health check completed.$(NC)\n"
 
 # ===================================================================
 # Load Test
 # ===================================================================
 load-test:
-	@echo "$(YELLOW)==> Running Load Test...$(NC)"
+	@printf "$(YELLOW)==> Running Load Test...$(NC)\n"
 	$(PYTHON) ./scripts/load-test.py
-	@echo "$(GREEN)Load test completed.$(NC)"
+	@printf "$(GREEN)Load test completed.$(NC)\n"
 
 # ===================================================================
 # Status
 # ===================================================================
 status:
-	@echo "$(BLUE)==> Cluster services:$(NC)"
+	@printf "$(BLUE)==> Cluster services$(NC)\n"
 	kubectl get pods,svc,hpa -n $(NS) -o wide
 
 # ===================================================================
-#  Unit Tests (Backend)
+# Unit Tests
 # ===================================================================
 unitTests:
-	@echo "$(BLUE)==> Running backend unit tests (Jest)...$(NC)"
+	@printf "$(BLUE)==> Running backend unit tests (Jest)...$(NC)\n"
 	@if [ -z "$(JEST)" ]; then \
-		echo "$(RED)[ERROR] Jest is not installed. Run: npm install --save-dev jest$(NC)"; \
+		printf "$(RED)[ERROR] Jest not installed. Run: npm install --save-dev jest$(NC)\n"; \
 		exit 1; \
 	fi
 	$(JEST) --runInBand
-	@echo "$(GREEN)Unit tests completed.$(NC)"
+	@printf "$(GREEN)Unit tests completed.$(NC)\n"
 
 # ===================================================================
-#  Mock Tests (UI / API mock layer)
+# Mock Tests
 # ===================================================================
 mock:
-	@echo "$(BLUE)==> Running UI mock tests...$(NC)"
-	@if [ -z "$(JEST)" ]; then \
-		echo "$(RED)[ERROR] Jest missing. Install with: npm install --save-dev jest$(NC)"; \
-		exit 1; \
-	fi
-	$(JEST) --config web/jest.config.js --runInBand
-	@echo "$(GREEN)Mock tests completed.$(NC)"
+	@printf "$(BLUE)==> Running UI mock tests$(NC)\n"
+	$(JEST) --config web-server/jest.config.js --runInBand
+	@printf "$(GREEN)Mock tests completed.$(NC)\n"
 
 # ===================================================================
-#  Full Test Suite (Backend + Web)
+# Full Test Suite
 # ===================================================================
 test-all:
-	@echo "$(YELLOW)==> Running FULL TEST SUITE (backend + UI)...$(NC)"
+	@printf "$(YELLOW)==> Running FULL TEST SUITE$(NC)\n"
 	make unitTests
 	make mock
-	@echo "$(GREEN)All tests passed.$(NC)"
+	@printf "$(GREEN)All tests passed.$(NC)\n"
 
-
-# ===================================================================
-#  Coverage Reports
-# ===================================================================
-coverage:
-	@echo "$(BLUE)==> Running coverage for backend + UI...$(NC)"
-	$(JEST) --coverage --config unityexpress-api/jest.config.js
-	$(JEST) --coverage --config web/jest.config.js
-	@echo "$(GREEN)Coverage complete. Reports in coverage/$(NC)"
-
-
-# ===================================================================
-#  Watch Modes
-# ===================================================================
-watch:
-	@echo "$(BLUE)==> Jest watch mode (backend)...$(NC)"
-	$(JEST) --watch --config unityexpress-api/jest.config.js
-
-watch-ui:
-	@echo "$(BLUE)==> Jest watch mode (UI)...$(NC)"
-	$(JEST) --watch --config web/jest.config.js
-	
 # ===================================================================
 # Help
 # ===================================================================
 help:
-	@echo ""
-	@echo "$(BLUE)UnityExpress Makefile Commands$(NC)"
-	@echo "  $(GREEN)make deploy$(NC)      Deploy system"
-	@echo "  $(GREEN)make destroy$(NC)     Destroy environment"
-	@echo "  $(GREEN)make restart$(NC)     Restart all deployments"
-	@echo "  $(GREEN)make logs$(NC)        Show logs for services"
-	@echo "  $(GREEN)make smoke$(NC)       Run smoke test"
-	@echo "  $(GREEN)make health$(NC)      Run health test"
-	@echo "  $(GREEN)make load-test$(NC)   Run load test"
-	@echo "  $(GREEN)make status$(NC)      Show cluster state"
-	@echo ""
+	@printf "\n$(BLUE)UnityExpress Makefile Commands$(NC)\n"
+	@printf "  $(GREEN)make deploy$(NC)      Deploy full environment\n"
+	@printf "  $(GREEN)make destroy$(NC)     Destroy environment\n"
+	@printf "  $(GREEN)make restart$(NC)     Restart deployments\n"
+	@printf "  $(GREEN)make logs$(NC)        Show logs\n"
+	@printf "  $(GREEN)make smoke$(NC)       Run smoke test\n"
+	@printf "  $(GREEN)make health$(NC)      Run health test\n"
+	@printf "  $(GREEN)make load-test$(NC)   Run load test\n"
+	@printf "  $(GREEN)make status$(NC)      Show cluster status\n"
