@@ -19,6 +19,19 @@ $(error No Python interpreter found. Install Python before running make targets)
 endif
 
 # -----------------------------
+# Detect Jest test runner
+# -----------------------------
+JEST := $(shell \
+	if command -v npx >/dev/null 2>&1; then echo "npx jest"; \
+	elif command -v jest >/dev/null 2>&1; then echo "jest"; \
+	else echo ""; fi \
+)
+
+ifeq ($(JEST),)
+$(warning Jest not found. Install with: npm install --save-dev jest)
+endif
+
+# -----------------------------
 # Colors (ANSI)
 # -----------------------------
 RED    := \033[0;31m
@@ -106,6 +119,61 @@ status:
 	@echo "$(BLUE)==> Cluster services:$(NC)"
 	kubectl get pods,svc,hpa -n $(NS) -o wide
 
+# ===================================================================
+#  Unit Tests (Backend)
+# ===================================================================
+unitTests:
+	@echo "$(BLUE)==> Running backend unit tests (Jest)...$(NC)"
+	@if [ -z "$(JEST)" ]; then \
+		echo "$(RED)[ERROR] Jest is not installed. Run: npm install --save-dev jest$(NC)"; \
+		exit 1; \
+	fi
+	$(JEST) --runInBand
+	@echo "$(GREEN)Unit tests completed.$(NC)"
+
+# ===================================================================
+#  Mock Tests (UI / API mock layer)
+# ===================================================================
+mock:
+	@echo "$(BLUE)==> Running UI mock tests...$(NC)"
+	@if [ -z "$(JEST)" ]; then \
+		echo "$(RED)[ERROR] Jest missing. Install with: npm install --save-dev jest$(NC)"; \
+		exit 1; \
+	fi
+	$(JEST) --config web/jest.config.js --runInBand
+	@echo "$(GREEN)Mock tests completed.$(NC)"
+
+# ===================================================================
+#  Full Test Suite (Backend + Web)
+# ===================================================================
+test-all:
+	@echo "$(YELLOW)==> Running FULL TEST SUITE (backend + UI)...$(NC)"
+	make unitTests
+	make mock
+	@echo "$(GREEN)All tests passed.$(NC)"
+
+
+# ===================================================================
+#  Coverage Reports
+# ===================================================================
+coverage:
+	@echo "$(BLUE)==> Running coverage for backend + UI...$(NC)"
+	$(JEST) --coverage --config unityexpress-api/jest.config.js
+	$(JEST) --coverage --config web/jest.config.js
+	@echo "$(GREEN)Coverage complete. Reports in coverage/$(NC)"
+
+
+# ===================================================================
+#  Watch Modes
+# ===================================================================
+watch:
+	@echo "$(BLUE)==> Jest watch mode (backend)...$(NC)"
+	$(JEST) --watch --config unityexpress-api/jest.config.js
+
+watch-ui:
+	@echo "$(BLUE)==> Jest watch mode (UI)...$(NC)"
+	$(JEST) --watch --config web/jest.config.js
+	
 # ===================================================================
 # Help
 # ===================================================================

@@ -76,6 +76,10 @@ NOTE: we can use Vertical autoscaling for lower costs
 2. improving CI\CI ETE tests (to make it "one click  like we spoke in our meeting")
 3. Adding Unit tests
 4. addind static code analysis as a part of the ci 
+5. Improve MOCs tests
+6. Add a GitHub badge showing test status
+7. Add local test dashboard (HTML coverage reports combined)
+8. Add failure notifications (Slack / Teams)
 
 
 
@@ -108,3 +112,15 @@ Test Coverage List
 
 12. Ensures no Kafka publish occurs when DB save fails.
 
+## MOC tests:
+
+mock tests verify
+
+
+1. UI renders purchases returned from mocked API.
+
+2. UI updates when a mocked API call creates a purchase.
+
+3. UI reacts correctly to incoming mocked WebSocket messages.
+
+4. WebSocket send() calls are logged and asserted.

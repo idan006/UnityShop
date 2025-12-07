@@ -1,4 +1,9 @@
 module.exports = {
   testEnvironment: "node",
-  testMatch: ["**/tests/**/*.test.js"]
+  roots: ["<rootDir>/tests"],
+  coverageDirectory: "<rootDir>/coverage",
+  collectCoverageFrom: [
+    "src/**/*.js",
+    "!src/index.js"
+  ]
 };
