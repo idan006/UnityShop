@@ -5,7 +5,9 @@
   "type": "commonjs",
   "scripts": {
     "start": "node src/index.js",
-    "test": "jest"
+    "test": "jest --runInBand",
+	"test:unit": "jest --runInBand --testPathPattern=unit",
+    "test:integration": "jest --runInBand --testPathPattern=integration"
   },
   "dependencies": {
     "cors": "^2.8.5",

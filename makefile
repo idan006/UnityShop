@@ -1,11 +1,12 @@
 # ===================================================================
-#  Cross-platform Makefile for UnityExpress
-#  Works on Linux, macOS, Windows Git Bash, WSL
+# Cross-platform Makefile for UnityExpress
+# Works on Linux, macOS, Windows Git Bash, WSL
 # ===================================================================
 
 # -----------------------------
 # Cross-platform Python detection
 # -----------------------------
+# Checks: 1. python3, 2. python, 3. py (Windows launcher)
 PYTHON := $(shell \
 	if command -v python3 >/dev/null 2>&1; then echo python3; \
 	elif command -v python >/dev/null 2>&1; then echo python; \
@@ -37,7 +38,7 @@ NS := unityexpress
 CHART := ./charts/unityexpress
 
 # ===================================================================
-#  Deploy UnityExpress
+# Deploy UnityExpress
 # ===================================================================
 deploy:
 	@echo "$(BLUE)==> Deploying UnityExpress...$(NC)"
@@ -45,7 +46,7 @@ deploy:
 	@echo "$(GREEN)Deployment completed.$(NC)"
 
 # ===================================================================
-#  Destroy environment
+# Destroy environment
 # ===================================================================
 destroy:
 	@echo "$(RED)==> Destroying UnityExpress...$(NC)"
@@ -54,7 +55,7 @@ destroy:
 	@echo "$(GREEN)Environment destroyed.$(NC)"
 
 # ===================================================================
-#  Restart deployments
+# Restart deployments
 # ===================================================================
 restart:
 	@echo "$(BLUE)==> Restarting all deployments in $(NS)...$(NC)"
@@ -62,7 +63,7 @@ restart:
 	@echo "$(GREEN)Restart completed.$(NC)"
 
 # ===================================================================
-#  Logs
+# Logs
 # ===================================================================
 logs:
 	@echo "$(BLUE)==> Logs: unityexpress-api$(NC)"
@@ -74,15 +75,16 @@ logs:
 	@echo "$(GREEN)Log output complete.$(NC)"
 
 # ===================================================================
-#  Smoke Test
+# Smoke Test
 # ===================================================================
 smoke:
 	@echo "$(YELLOW)==> Running Smoke Test...$(NC)"
+	# **IMPORTANT**: Ensure the script file name is correct (e.g., smoke-test.py vs smoke_test.py)
 	$(PYTHON) ./scripts/smoke-test.py
 	@echo "$(GREEN)Smoke test executed.$(NC)"
 
 # ===================================================================
-#  Health Test
+# Health Test
 # ===================================================================
 health:
 	@echo "$(YELLOW)==> Running health verification...$(NC)"
@@ -90,7 +92,7 @@ health:
 	@echo "$(GREEN)Health check completed.$(NC)"
 
 # ===================================================================
-#  Load Test
+# Load Test
 # ===================================================================
 load-test:
 	@echo "$(YELLOW)==> Running Load Test...$(NC)"
@@ -98,24 +100,24 @@ load-test:
 	@echo "$(GREEN)Load test completed.$(NC)"
 
 # ===================================================================
-#  Status
+# Status
 # ===================================================================
 status:
 	@echo "$(BLUE)==> Cluster services:$(NC)"
 	kubectl get pods,svc,hpa -n $(NS) -o wide
 
 # ===================================================================
-#  Help
+# Help
 # ===================================================================
 help:
 	@echo ""
 	@echo "$(BLUE)UnityExpress Makefile Commands$(NC)"
-	@echo "  $(GREEN)make deploy$(NC)        Deploy system"
-	@echo "  $(GREEN)make destroy$(NC)       Destroy environment"
-	@echo "  $(GREEN)make restart$(NC)       Restart all deployments"
-	@echo "  $(GREEN)make logs$(NC)          Show logs for services"
-	@echo "  $(GREEN)make smoke$(NC)         Run smoke test"
-	@echo "  $(GREEN)make health$(NC)        Run health test"
-	@echo "  $(GREEN)make load-test$(NC)     Run load test"
-	@echo "  $(GREEN)make status$(NC)        Show cluster state"
+	@echo "  $(GREEN)make deploy$(NC)      Deploy system"
+	@echo "  $(GREEN)make destroy$(NC)     Destroy environment"
+	@echo "  $(GREEN)make restart$(NC)     Restart all deployments"
+	@echo "  $(GREEN)make logs$(NC)        Show logs for services"
+	@echo "  $(GREEN)make smoke$(NC)       Run smoke test"
+	@echo "  $(GREEN)make health$(NC)      Run health test"
+	@echo "  $(GREEN)make load-test$(NC)   Run load test"
+	@echo "  $(GREEN)make status$(NC)      Show cluster state"
 	@echo ""

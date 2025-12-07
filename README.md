@@ -21,9 +21,9 @@ The stack includes:
 
 3. cd [project_root_dir]
 
-4. chmod +x prereuisites.sh
+4. chmod +x ./scripts/prerequisites.sh
 
-5. Run: ./prereuisites.sh 
+5. Run: ./scripts/prereuisites.sh 
 
 6. run: make deploy
 
@@ -63,3 +63,48 @@ NOTE: we can use Vertical autoscaling for lower costs
 [![UnityExpress](https://img.shields.io/badge/UnityExpress-Cloud%20Native-blue.svg)](#)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](#)
 [![Status](https://img.shields.io/badge/Status-Active-success.svg)](#)
+
+
+
+
+# Scripts checklist
+
+
+
+# Phase 2 additions:
+1. Adding load tool to tests load and fail-over
+2. improving CI\CI ETE tests (to make it "one click  like we spoke in our meeting")
+3. Adding Unit tests
+4. addind static code analysis as a part of the ci 
+
+
+
+## CI\CD:
+
+# API UNIT TESTS:
+Test Coverage List
+
+1. Creates a purchase successfully when valid input is provided.
+
+2. Rejects purchase creation when required fields are missing.
+
+3. Rejects purchase creation when price is invalid or negative.
+
+4. Rejects purchase creation when timestamp is invalid.
+
+5. Persists the purchase in MongoDB after successful creation.
+
+6. Returns all existing purchases through GET /api/purchases.
+
+7. Returns purchases sorted by newest timestamp first.
+
+8. Returns an empty array when no purchases exist.
+
+9. Calls Kafka publish function on successful purchase creation.
+
+10. Handles Kafka publish failures without crashing the API.
+
+11. Returns HTTP 500 when MongoDB save operation fails.
+
+12. Ensures no Kafka publish occurs when DB save fails.
+
