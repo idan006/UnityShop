@@ -377,3 +377,5 @@ echo -e "   - Docker points to Minikube"
 echo -e "   - dns-test pod available for debugging"
 echo -e "============================================================"
 echo ""
+
+echo "run " make deploy" if you want to deploy UnityShop now"

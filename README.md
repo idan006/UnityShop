@@ -3,6 +3,7 @@ A Full-Stack Kubernetes Demo App with Kafka, MongoDB, Node.js API, React UI, and
 
 UnityExpress is a fully containerized microservice application designed for DevOps, SRE, and cloud-native learning environments.
 This project demonstrates how to design, package, and deploy a multi-service application behind a unified gateway using best practices for cloud-native development.
+Running locally with Minikube + virtualbox driver
 
 The stack includes:
 
@@ -67,8 +68,14 @@ NOTE: we can use Vertical autoscaling for lower costs
 
 
 
-# Scripts checklist
-
+## Scripts checklist
+# prerequisites:
+✔ Detect OS
+✔ Python installed
+✔ kubectl / minikube / helm detected
+✔ Minikube starts
+✔ Docker now points to Minikube
+✔ dns-test resolves kubernetes.local
 
 
 # Phase 2 additions:
