@@ -1,5 +1,4 @@
 namespace: unityexpress
-
 api:
   image: unityexpress-api:local
   replicaCount: 1
@@ -33,3 +32,4 @@ nginx:
     nodePort: 30080
   image: nginx:stable
 
+projectUuid: "unityexpress-1765203965"
