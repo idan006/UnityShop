@@ -1,0 +1,80 @@
+name: UnityExpress CI
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      
+      - name: Install helm
+        uses: azure/setup-helm@v4
+      
+      - name: Lint Helm chart
+        run: helm lint charts/unityexpress
+      
+      - name: Validate chart template rendering
+        run: helm template unityexpress charts/unityexpress --debug
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Build API image
+        run: |
+          REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          docker build -t ghcr.io/${REPO}/unityexpress-api:latest ./api-server
+          docker push ghcr.io/${REPO}/unityexpress-api:latest
+      
+      - name: Build Web image
+        run: |
+          REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          docker build -t ghcr.io/${REPO}/unityexpress-web:latest ./web-server
+          docker push ghcr.io/${REPO}/unityexpress-web:latest
+      
+      - name: Helm dry-run deploy (no cluster needed)
+        run: |
+          helm template unityexpress charts/unityexpress \
+            --set api.image=ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')/unityexpress-api:latest \
+            --set web.image=ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')/unityexpress-web:latest
+     # In .github/workflows/ci.yml
+
+      - name: Set version
+        id: version
+        run: |
+          # Use git commit SHA as version
+          VERSION="${GITHUB_SHA::8}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Build API image
+        run: |
+          REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          VERSION=${{ steps.version.outputs.version }}
+          docker build -t ghcr.io/${REPO}/unityexpress-api:${VERSION} ./api-server
+          docker build -t ghcr.io/${REPO}/unityexpress-api:latest ./api-server
+          docker push ghcr.io/${REPO}/unityexpress-api:${VERSION}
+          docker push ghcr.io/${REPO}/unityexpress-api:latest
+
+      - name: Helm dry-run deploy
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          helm template unityexpress charts/unityexpress \
+            --set appVersion=${VERSION} \
+            --set imageTag=${VERSION} \
+            --set api.image=ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')/unityexpress-api:${VERSION}

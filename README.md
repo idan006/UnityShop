@@ -1,142 +1,256 @@
-# Welcome to UnityExpress Shop By Idan Agam!
-A Full-Stack Kubernetes Demo App with Kafka, MongoDB, Node.js API, React UI, and NGINX Gateway
+# UnityExpress – Cloud-Native Event-Driven Demo Platform
 
-UnityExpress is a fully containerized microservice application designed for DevOps, SRE, and cloud-native learning environments.
-This project demonstrates how to design, package, and deploy a multi-service application behind a unified gateway using best practices for cloud-native development.
-Running locally with Minikube + virtualbox driver
+A complete, production-style microservices project showcasing Kubernetes, Helm, CI/CD patterns, Kafka event streaming, MongoDB persistence, autoscaling with KEDA, NGINX gateway routing, and Docker-based local development.
 
-The stack includes:
+UnityExpress is intentionally built as a **Senior DevOps Engineer portfolio project**, demonstrating modern cloud-native patterns end to end.
 
-* **React Web Frontend**
-* **Node.js API**
-* **Kafka + Zookeeper**
-* **MongoDB**
-* **NGINX Gateway (single entrypoint for UI + API)**
-* **Helm chart for automated deployment**
-* **Kubernetes-ready, Minikube-friendly**
+---
 
-# Delpoy:
-1. create new folder and run: git clone https://github.com/idan006/UnityShop.git
+## Overview
 
-2. open command prompt and run:
+UnityExpress includes the following services:
 
-3. cd [project_root_dir]
+- **API Service (Node.js)**
+- **Web UI (NGINX + Static Frontend)**
+- **Kafka + Zookeeper**
+- **MongoDB StatefulSet**
+- **KEDA autoscaling based on Kafka consumer lag**
+- **Prometheus Operator CRDs for observability**
+- **Helm-based deployment**
+- **Makefile automation**
+- **Minikube + Docker Desktop local environment**
 
-4. chmod +x ./scripts/prerequisites.sh
+This project is fully reproducible and can run on **any computer** capable of running Docker Desktop.
 
-5. Run: ./scripts/prereuisites.sh 
+---
 
-6. run: make deploy
+# Architecture
 
+### High-Level System Flow
 
-# Additional tools you can use:
+```
+Client Browser
+      │
+      ▼
+NGINX Gateway (NodePort)
+ • Routes /api → API service
+ • Serves UI
+      │
+      ▼
+API Server (Node.js)
+ • REST endpoints
+ • Publishes Kafka events
+ • Writes to MongoDB
+      │
+      ▼
+Kafka Broker
+ • Stores purchase events
+ • KEDA monitors lag → autoscaling
+      │
+      ▼
+MongoDB StatefulSet
+ • Persistent purchase history
+```
+
+---
+
+# Project Structure
+
+```
+UnityExpress/
+├── api-server/
+│   ├── src/
+│   ├── Dockerfile
+│   └── package.json
+│
+├── web-server/
+│   ├── html/
+│   ├── nginx.conf
+│   └── Dockerfile
+│
+├── charts/
+│   └── unityexpress/   # Helm chart (single, declarative)
+│
+├── scripts/
+│   ├── smoke_test.py
+│   ├── load-test.py
+│   └── verify-health.py
+│
+├── makefile
+└── README.md
+```
+
+---
+
+# Prerequisites
+
+### Required tools
+
+| Tool          | Purpose                       |
+|---------------|-------------------------------|
+| Docker Desktop | Build + local registry       |
+| Minikube (Docker driver) | Local Kubernetes |
+| kubectl       | Cluster command-line          |
+| Helm 3        | Deployment engine             |
+| Python 3      | For automated smoke tests     |
+
+### Start the cluster
+
+```
+minikube start --driver=docker --cpus=4 --memory=8192
+```
+
+---
+
+# Deployment Workflow
+
+### Step 1 — Build images
+
+```
+make build
+```
+
+### Step 2 — Load them into Minikube
+
+```
+make load
+```
+
+### Step 3 — Deploy all components
+
+```
 make deploy
-make destroy
-make restart
-make logs
+```
+
+### Step 4 — Open the UI
+
+```
+make open
+```
+
+Or:
+
+```
+minikube service unityexpress-gateway -n unityexpress
+```
+
+---
+
+# Features
+
+### Kubernetes-native design  
+100% declarative, infrastructure-as-code using Helm.
+
+### Event-driven autoscaling  
+KEDA automatically scales API replicas when Kafka lag increases.
+
+### Local reproducibility  
+Works on **any** machine running Docker + Minikube.
+
+### Secure architecture & multi-service pattern  
+Gateway, API, Kafka, MongoDB, KEDA — all isolated and reproducible.
+
+---
+
+# Recommended Helm Improvements
+
+## 1. Add CPU & memory requests/limits
+
+```yaml
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+```
+
+## 2. Add readiness/liveness probes
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 30
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 3000
+  initialDelaySeconds: 5
+```
+
+## 3. Remove hardcoded secrets & credentials  
+Use Kubernetes Secrets or external managers (Vault, SOPS, SealedSecrets).
+
+## 4. Add security contexts
+
+```yaml
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop: ["ALL"]
+```
+
+## 5. Increase replicas for scalability and HA
+
+```
+replicas: 3
+```
+
+## 6. Improve Kafka for production  
+Use multi-broker, persistent storage, external access, TLS, SASL, etc.
+
+---
+
+# Testing
+
+### Smoke Test
+
+```
 make smoke
-make health
-make load-test
+```
 
-# Autoscaling methuds:
-A. CPU Utilization (If the API pods consistently use more than 70% CPU, Kubernetes increases replicas)
-B. Memory Utilization (When memory consumption goes above 80%, the HPA triggers new pod replicas)
-C. Custom Application Latency Metric (If average request latency across pod exceeds 0.3 seconds, scale out)
+### General Status
 
-# API autoscaling is hybrid, reacting to:
-Infrastructure pressure
-Resource saturation
-Real user experience signals (latency)
+```
+make status
+```
 
-# Autoscaling Flow Summary
-1. Traffic Spike → Increased API latency / CPU / Memory
-↓
-2. HPA triggers scale-out
-↓
-3. New API pods start pulling messages and producing Kafka messages
-↓
-4. Kafka remains stable due to internal balancing
-↓
-5. UI and WebSocket subscribers remain real-time and responsive
+### Logs
 
-NOTE: we can use Vertical autoscaling for lower costs
+```
+make logs
+```
 
-[![UnityExpress](https://img.shields.io/badge/UnityExpress-Cloud%20Native-blue.svg)](#)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](#)
-[![Status](https://img.shields.io/badge/Status-Active-success.svg)](#)
+---
 
+# Summary
 
+UnityExpress is a full cloud-native microservice environment designed to demonstrate:
 
+- DevOps automation
+- Event-driven design
+- CI/CD-oriented workflows
+- Kubernetes scaling with KEDA
+- Observability best practices
+- Helm-driven configuration
+- Containerized microservices architecture
 
-## Scripts checklist
-# prerequisites:
-✔ Detect OS
-✔ Python installed
-✔ kubectl / minikube / helm detected
-✔ Minikube starts
-✔ Docker now points to Minikube
-✔ dns-test resolves kubernetes.local
+It is a powerful, realistic project that reflects the skillset and design thinking of a **Senior DevOps Engineer**.
 
+---
 
-# Phase 2 additions:
-1. Adding load tool to tests load and fail-over
-2. improving CI\CI ETE tests (to make it "one click  like we spoke in our meeting")
-3. Adding Unit tests
-4. addind static code analysis as a part of the ci 
-5. Improve MOCs tests
-6. Add a GitHub badge showing test status
-7. Add local test dashboard (HTML coverage reports combined)
-8. Add failure notifications (Slack / Teams)
-9. Adding HTTPS (API+Web) and automatic renew certificates 
-10. ArgoCD per cluster 
-11. Seacrets managment (like AWS Secrets Manager or HashiCorp Vault)
-12. Helm Chart Optimization and adding Karpenter 
-13. Use GitHub Actions
-14. Add DNS record and LB with the DR site
-15. UI additions: Add caching headers, Add gzip, Add rate-limit, Add JWT-based auth at gateway, Add retries / timeouts in NGINX, Add blue-green NGINX config for canary deployments
-16. Optimive Docker caching
-17. Add test coverage badges
-18. upgrade Kafka to full HA with graceful degradation
+If you want, I can also generate:
 
+- GitHub Actions CI/CD pipeline
+- High-level system diagram in PNG/SVG
+- CONTRIBUTING.md
+- SECURITY.md
+- Architecture Decision Records (ADRs)
+- Production-grade Helm values schema
 
-## CI\CD:
-
-# API UNIT TESTS:
-Test Coverage List
-
-1. Creates a purchase successfully when valid input is provided.
-
-2. Rejects purchase creation when required fields are missing.
-
-3. Rejects purchase creation when price is invalid or negative.
-
-4. Rejects purchase creation when timestamp is invalid.
-
-5. Persists the purchase in MongoDB after successful creation.
-
-6. Returns all existing purchases through GET /api/purchases.
-
-7. Returns purchases sorted by newest timestamp first.
-
-8. Returns an empty array when no purchases exist.
-
-9. Calls Kafka publish function on successful purchase creation.
-
-10. Handles Kafka publish failures without crashing the API.
-
-11. Returns HTTP 500 when MongoDB save operation fails.
-
-12. Ensures no Kafka publish occurs when DB save fails.
-
-## MOC tests:
-
-mock tests verify
-
-
-1. UI renders purchases returned from mocked API.
-
-2. UI updates when a mocked API call creates a purchase.
-
-3. UI reacts correctly to incoming mocked WebSocket messages.
-
-4. WebSocket send() calls are logged and asserted.
+Just tell me. 🚀
