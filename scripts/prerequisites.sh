@@ -17,12 +17,9 @@ log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
 
 trap 'log_error "Script failed on line $LINENO"; exit 1' ERR
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-cd "$PROJECT_ROOT"
 
 echo "============================================================"
-echo "        UnityExpress - Cross-Platform local Installer"
+echo "      UnityExpress – Cross-Platform Prerequisites Setup"
 echo "============================================================"
 
 # ------------------------------------------------------------
@@ -33,227 +30,164 @@ case "$(uname -s)" in
   Linux*)   OS="linux" ;;
   Darwin*)  OS="mac" ;;
   CYGWIN*|MINGW*|MSYS_NT*) OS="windows" ;;
-  *)        OS="unknown" ;;
+  *) OS="unknown" ;;
 esac
-
 log_info "Detected OS: $OS"
 
 # ------------------------------------------------------------
-# Python detection and installation
+# Ensure Docker Desktop is installed and running
+# ------------------------------------------------------------
+ensure_docker_desktop() {
+
+  log_info "Checking Docker Desktop..."
+
+  if ! command -v docker >/dev/null 2>&1; then
+    log_error "Docker Desktop is not installed."
+
+    if [ "$OS" = "windows" ]; then
+      echo "Download from: https://www.docker.com/products/docker-desktop/"
+      echo "After installation, restart this script."
+    elif [ "$OS" = "mac" ]; then
+      echo "Install Docker Desktop via:"
+      echo "  brew install --cask docker"
+      echo "Then open Docker Desktop manually."
+    else
+      log_error "Linux detected — UnityExpress supports Docker Desktop only."
+    fi
+
+    exit 1
+  fi
+
+  # check that daemon is reachable
+  if ! docker info >/dev/null 2>&1; then
+    log_error "Docker Desktop installed but NOT running."
+    echo "Start Docker Desktop manually, then rerun this script."
+    exit 1
+  fi
+
+  log_ok "Docker Desktop is installed and running."
+}
+
+ensure_docker_desktop
+
+# ------------------------------------------------------------
+# Python detection
 # ------------------------------------------------------------
 detect_python() {
   PYTHON_CMD=""
-  if [ "$OS" = "windows" ]; then
-    if command -v py >/dev/null 2>&1; then PYTHON_CMD="py -3"; return; fi
-    if command -v python3 >/dev/null 2>&1; then PYTHON_CMD="python3"; return; fi
-    if command -v python >/dev/null 2>&1; then PYTHON_CMD="python"; return; fi
-  else
-    if command -v python3 >/dev/null 2>&1; then PYTHON_CMD="python3"; return; fi
-    if command -v python >/dev/null 2>&1; then PYTHON_CMD="python"; return; fi
-  fi
-}
-
-install_python_windows() {
-  log_warn "Python not found. Installing with Chocolatey..."
-  if ! command -v choco >/dev/null 2>&1; then
-    log_error "Chocolatey missing. Install from https://chocolatey.org/"
-    exit 1
-  fi
-  choco install -y python
-  log_ok "Python installed."
-}
-
-install_python_unix() {
-  log_warn "Python not found. Installing..."
-  if [ "$OS" = "mac" ]; then
-    if ! command -v brew >/dev/null 2>&1; then
-      log_error "Homebrew missing. Install manually from python.org"
-      exit 1
-    fi
-    brew install python
-  else
-    if command -v apt-get >/dev/null 2>&1; then
-      sudo apt-get update || true
-      sudo apt-get install -y python3 python3-pip
-    elif command -v yum >/dev/null 2>&1; then
-      sudo yum install -y python3
-    elif command -v dnf >/dev/null 2>&1; then
-      sudo dnf install -y python3
-    else
-      log_error "No supported package manager found. Install manually."
-      exit 1
-    fi
-  fi
+  if command -v python3 >/dev/null 2>&1; then PYTHON_CMD="python3"; return; fi
+  if command -v python >/dev/null 2>&1; then PYTHON_CMD="python"; return; fi
+  if command -v py >/dev/null 2>&1; then PYTHON_CMD="py -3"; return; fi
 }
 
 ensure_python() {
-  log_info "Checking Python availability..."
+  log_info "Checking Python..."
+
   detect_python
 
   if [ -z "${PYTHON_CMD}" ]; then
-    if [ "$OS" = "windows" ]; then install_python_windows
-    else install_python_unix
-    fi
-    detect_python
-    if [ -z "${PYTHON_CMD}" ]; then
-      log_error "Python still missing after installation attempt."
-      exit 1
-    fi
+    log_error "Python not installed. Install Python 3 and rerun."
+    exit 1
   fi
 
   log_ok "Using Python: $PYTHON_CMD"
 
   if ! $PYTHON_CMD -m pip --version >/dev/null 2>&1; then
-    log_warn "pip missing. Bootstrapping..."
+    log_warn "pip missing. Attempting ensurepip..."
     $PYTHON_CMD -m ensurepip || true
   fi
 }
 
+ensure_python
+
 # ------------------------------------------------------------
-# Kubernetes toolchain validation (kubectl, minikube, helm)
+# Kubernetes toolchain
 # ------------------------------------------------------------
 ensure_tool() {
-  local name="$1"
-  if command -v "$name" >/dev/null 2>&1; then
-    log_ok "$name found"
-  else
-    log_error "$name missing — install it before running prerequisites."
+  if ! command -v "$1" >/dev/null 2>&1; then
+    log_error "$1 missing — install it before running prerequisites."
     exit 1
   fi
+  log_ok "$1 found"
 }
 
-ensure_k8s_tools() {
-  echo "============================================================"
-  echo "   Checking Kubernetes Toolchain"
-  echo "============================================================"
+echo "============================================================"
+echo "   Checking Kubernetes Toolchain"
+echo "============================================================"
 
-  ensure_tool kubectl
-  ensure_tool minikube
-  ensure_tool helm
-}
+ensure_tool kubectl
+ensure_tool minikube
+ensure_tool helm
 
 # ------------------------------------------------------------
-# Minikube start / repair
+# FORCE MINIKUBE TO USE DOCKER DESKTOP DRIVER
 # ------------------------------------------------------------
-select_driver() {
-  if command -v VBoxManage >/dev/null 2>&1; then
-    echo "virtualbox"
-  elif command -v docker >/dev/null 2>&1; then
-    echo "docker"
-  else
-    echo ""
-  fi
-}
+log_info "Configuring Minikube to use Docker Desktop driver..."
 
-start_minikube() {
-  echo "============================================================"
-  echo "   Starting Minikube"
-  echo "============================================================"
-
-  local DRIVER
-  DRIVER=$(select_driver)
-
-  if [ -z "$DRIVER" ]; then
-    log_error "No Minikube drivers available (VirtualBox or Docker)."
-    exit 1
-  fi
-
-  log_info "Selected driver: $DRIVER"
-
-  if ! minikube status >/dev/null 2>&1; then
-    log_warn "Minikube not running. Starting fresh..."
-    minikube delete || true
-    minikube start \
-      --driver="$DRIVER" \
-      --cpus=4 \
-      --memory=8192 \
-      --addons=metrics-server \
-      --addons=dashboard
-  fi
-
-  log_ok "Minikube is running."
-}
+minikube config set driver docker >/dev/null 2>&1 || true
+log_ok "Minikube configured to use Docker driver"
 
 # ------------------------------------------------------------
-# Configure Docker to use Minikube Docker daemon
+# Start Minikube (Docker Desktop only)
 # ------------------------------------------------------------
-configure_docker() {
-  echo "============================================================"
-  echo "   Configuring Docker for Minikube"
-  echo "============================================================"
+log_info "Starting Minikube (Docker driver)..."
 
-  case "$OS" in
-    linux|mac)
-      eval "$(minikube docker-env)"
-      ;;
-    windows)
-      eval "$(minikube docker-env --shell=bash)"
-      ;;
-    *)
-      log_error "Unsupported OS for docker-env"
-      exit 1
-      ;;
-  esac
+if minikube status >/dev/null 2>&1; then
+  log_ok "Minikube already running."
+else
+  minikube start \
+    --driver=docker \
+    --cpus=4 \
+    --memory=8192 \
+    --addons=metrics-server \
+    --addons=dashboard
+fi
 
-  if docker info >/dev/null 2>&1; then
-    log_ok "Docker now points to Minikube"
-  else
-    log_error "Docker failed to connect to Minikube."
-    echo "Run manually (PowerShell):"
-    echo "  minikube -p minikube docker-env | Invoke-Expression"
-    exit 1
-  fi
-}
+log_ok "Minikube is running."
 
 # ------------------------------------------------------------
-# Ensure dns-test pod
+# Docker → Minikube
 # ------------------------------------------------------------
-ensure_dns_test() {
-  echo "============================================================"
-  echo "   Ensuring dns-test pod"
-  echo "============================================================"
+log_info "Configuring Docker client to use Minikube’s Docker daemon..."
 
-  if kubectl get pod dns-test >/dev/null 2>&1; then
-    log_ok "dns-test already exists"
-    return
-  fi
+if [ "$OS" = "windows" ]; then
+  eval "$(minikube docker-env --shell=bash)"
+else
+  eval "$(minikube docker-env)"
+fi
 
-  log_info "Creating dns-test..."
+docker info >/dev/null 2>&1 \
+  && log_ok "Docker now points to Minikube internal registry" \
+  || log_error "Docker failed connecting to Minikube!"
+
+# ------------------------------------------------------------
+# dns-test pod
+# ------------------------------------------------------------
+log_info "Ensuring dns-test pod exists..."
+
+if ! kubectl get pod dns-test >/dev/null 2>&1; then
   kubectl run dns-test \
     --image=busybox:1.36 \
     --restart=Never \
-    --command -- sh -c "sleep 3600" || log_warn "dns-test creation failed"
-
-  log_ok "dns-test pod ready"
-}
+    --command -- sh -c "sleep 3600"
+  log_ok "dns-test created"
+else
+  log_ok "dns-test already exists"
+fi
 
 # ------------------------------------------------------------
-# Main
+# Finish
 # ------------------------------------------------------------
-ensure_python
-ensure_k8s_tools
-start_minikube
-configure_docker
-ensure_dns_test
-
-log_info "Exposing Minikube services to localhost..."
-minikube tunnel >/dev/null 2>&1 &
-
-eval $(minikube docker-env --shell=bash)
-
-
 echo "============================================================"
-echo "   Prerequisites completed successfully"
+echo "   Prerequisites Completed Successfully"
 echo "============================================================"
-echo " - Python ready"
+echo " - Docker Desktop OK"
+echo " - Python OK"
 echo " - kubectl / minikube / helm OK"
-echo " - Docker → Minikube configured"
-echo " - dns-test pod available"
+echo " - Minikube running (Docker driver)"
+echo " - Docker is pointing to Minikube"
+echo " - dns-test pod ready"
 echo "============================================================"
 echo ""
-echo "Run:  make deploy"
+echo "Next step: run    make deploy"
 echo ""
-
-echo "UI will be available at:  http://localhost:30090"
-echo "API willl be available at: http://localhost:30090/api"
-

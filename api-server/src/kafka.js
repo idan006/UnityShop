@@ -26,7 +26,7 @@ function initKafka() {
 }
 
 // ---------------------------------------------
-// Safe connect (non-fatal)
+// Safe connect (non-fatal, retried in background)
 // ---------------------------------------------
 async function tryConnectKafka() {
   if (connecting || kafkaReady) return;
@@ -83,7 +83,7 @@ async function publishPurchase(purchase) {
       topic: config.kafkaTopic,
       messages: [{ value: JSON.stringify(purchase) }]
     });
-    console.log("[Kafka] Published:", purchase._id);
+    console.log("[Kafka] Published:", purchase._id || purchase);
   } catch (err) {
     console.warn("[Kafka] Publish failed (non-fatal):", err.message);
   }
