@@ -15,10 +15,10 @@ jobs:
           node-version: "20"
       
       - name: Install dependencies (backend)
-        run: cd api-server && npm install
+        run: cd api-server && npm ci
       
       - name: Install dependencies (web)
-        run: cd web-server && npm install
+        run: cd web-server && npm ci
       
       - name: Run backend tests
         run: cd api-server && npm test
