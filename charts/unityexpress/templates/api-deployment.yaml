@@ -1,65 +1,81 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: unityexpress-api
+  name: {{ include "unityexpress.api.fullname" . }}
+  namespace: {{ .Values.namespace }}
   labels:
-    app: unityexpress-api
+    {{- include "unityexpress.api.labels" . | nindent 4 }}
+  annotations:
+    {{- include "unityexpress.configChecksum" . | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.api.replicaCount }}
   selector:
     matchLabels:
       app: unityexpress-api
   template:
     metadata:
       labels:
-        app: unityexpress-api
+        {{- include "unityexpress.api.labels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       containers:
         - name: api
-          image: unityexpress-api:local
-          imagePullPolicy: IfNotPresent
+          image: {{ .Values.api.image }}
+          imagePullPolicy: {{ .Values.api.imagePullPolicy }}
           ports:
-            - containerPort: 3000
+            - name: http
+              containerPort: {{ .Values.api.port }}
+              protocol: TCP
           env:
-            # ------------------------
-            # API PORT
-            # ------------------------
             - name: PORT
-              value: "3000"
-
-            # ------------------------
-            # MongoDB
-            # ------------------------
+              value: {{ .Values.api.port | quote }}
             - name: MONGO_URI
-              value: "mongodb://unityexpress-mongo:27017/unityexpress"
-
-            # ------------------------
-            # Kafka (App Settings)
-            # ------------------------
+              value: {{ include "unityexpress.mongoUri" . | quote }}
             - name: KAFKA_TOPIC
-              value: "purchases"
+              value: {{ .Values.api.env.kafkaTopic | quote }}
             - name: KAFKA_CLIENT_ID
-              value: "unityexpress-api"
+              value: {{ .Values.api.env.kafkaClientId | quote }}
             - name: KAFKA_GROUP_ID
-              value: "unityexpress-group"
-
-            # ------------------------
-            # Kafka (Injected by Secret)
-            # ------------------------
+              value: {{ .Values.api.env.kafkaGroupId | quote }}
             - name: KAFKA_BROKERS
               valueFrom:
                 secretKeyRef:
                   name: kafka-secret
                   key: bootstrapServers
-
             - name: KAFKA_SASL_ENABLED
               valueFrom:
                 secretKeyRef:
                   name: kafka-secret
                   key: sasl
-
             - name: KAFKA_TLS_ENABLED
               valueFrom:
                 secretKeyRef:
                   name: kafka-secret
                   key: tls
+          {{- if .Values.api.resources }}
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+          {{- end }}
+          {{- if .Values.api.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.api.livenessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.api.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.api.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.api.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.api.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.api.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.api.readinessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.api.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.api.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.api.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.api.readinessProbe.failureThreshold }}
+          {{- end }}

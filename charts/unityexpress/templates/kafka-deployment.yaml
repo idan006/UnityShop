@@ -1,13 +1,10 @@
-#############################################
-# Kafka Service
-#############################################
 apiVersion: v1
 kind: Service
 metadata:
-  name: unityexpress-kafka
+  name: {{ include "unityexpress.kafka.fullname" . }}
+  namespace: {{ .Values.namespace }}
   labels:
-    {{- include "unityexpress.labels" . | nindent 4 }}
-    app: unityexpress-kafka
+    {{- include "unityexpress.kafka.labels" . | nindent 4 }}
 spec:
   ports:
     - name: kafka
@@ -16,92 +13,83 @@ spec:
   selector:
     app: unityexpress-kafka
 ---
-#############################################
-# Zookeeper Service
-#############################################
 apiVersion: v1
 kind: Service
 metadata:
   name: unityexpress-zookeeper
+  namespace: {{ .Values.namespace }}
   labels:
     {{- include "unityexpress.labels" . | nindent 4 }}
     app: unityexpress-zookeeper
 spec:
   ports:
     - name: zk
-      port: {{ .Values.kafka.zookeeperPort }}
-      targetPort: {{ .Values.kafka.zookeeperPort }}
+      port: {{ .Values.kafka.zookeeper.port }}
+      targetPort: {{ .Values.kafka.zookeeper.port }}
   selector:
     app: unityexpress-kafka
 ---
-#############################################
-# Kafka + Zookeeper Deployment
-#############################################
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: unityexpress-kafka
+  name: {{ include "unityexpress.kafka.fullname" . }}
+  namespace: {{ .Values.namespace }}
   labels:
-    {{- include "unityexpress.labels" . | nindent 4 }}
-    app: unityexpress-kafka
+    {{- include "unityexpress.kafka.labels" . | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.kafka.replicaCount }}
   selector:
     matchLabels:
       app: unityexpress-kafka
   template:
     metadata:
       labels:
-        {{- include "unityexpress.labels" . | nindent 8 }}
-        app: unityexpress-kafka
+        {{- include "unityexpress.kafka.labels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       containers:
-
-#############################################
-# ZOOKEEPER CONTAINER (Confluent)
-#############################################
         - name: zookeeper
-          image: {{ .Values.kafka.zookeeperImage }}
-          imagePullPolicy: IfNotPresent
+          image: {{ .Values.kafka.zookeeper.image }}
+          imagePullPolicy: {{ .Values.kafka.imagePullPolicy }}
           env:
             - name: ZOOKEEPER_CLIENT_PORT
-              value: "{{ .Values.kafka.zookeeperPort }}"
+              value: {{ .Values.kafka.zookeeper.env.clientPort | quote }}
             - name: ZOOKEEPER_TICK_TIME
-              value: "2000"
+              value: {{ .Values.kafka.zookeeper.env.tickTime | quote }}
             - name: ZOOKEEPER_INIT_LIMIT
-              value: "5"
+              value: {{ .Values.kafka.zookeeper.env.initLimit | quote }}
             - name: ZOOKEEPER_SYNC_LIMIT
-              value: "2"
+              value: {{ .Values.kafka.zookeeper.env.syncLimit | quote }}
           ports:
-            - containerPort: {{ .Values.kafka.zookeeperPort }}
-
-#############################################
-# KAFKA CONTAINER (Confluent)
-#############################################
+            - name: zk
+              containerPort: {{ .Values.kafka.zookeeper.port }}
+              protocol: TCP
         - name: kafka
           image: {{ .Values.kafka.image }}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{ .Values.kafka.imagePullPolicy }}
           env:
-            # ---- Mandatory for Confluent Kafka ----
             - name: KAFKA_ZOOKEEPER_CONNECT
-              value: "unityexpress-zookeeper:{{ .Values.kafka.zookeeperPort }}"
-
+              value: "unityexpress-zookeeper:{{ .Values.kafka.zookeeper.port }}"
             - name: KAFKA_LISTENERS
               value: "PLAINTEXT://0.0.0.0:{{ .Values.kafka.port }}"
-
             - name: KAFKA_ADVERTISED_LISTENERS
-              value: "PLAINTEXT://unityexpress-kafka.unityexpress.svc.cluster.local:{{ .Values.kafka.port }}"
-
-            # ---- Single node replication settings ----
+              value: "PLAINTEXT://{{ include "unityexpress.kafka.fullname" . }}.{{ .Values.namespace }}.svc.cluster.local:{{ .Values.kafka.port }}"
             - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
-              value: "1"
+              value: {{ .Values.kafka.env.offsetsTopicReplicationFactor | quote }}
             - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
-              value: "1"
+              value: {{ .Values.kafka.env.transactionStateLogReplicationFactor | quote }}
             - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
-              value: "1"
-
-            # ---- Auto-Create Topics ----
+              value: {{ .Values.kafka.env.transactionStateLogMinIsr | quote }}
             - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
-              value: "true"
+              value: {{ .Values.kafka.env.autoCreateTopicsEnable | quote }}
           ports:
-            - containerPort: {{ .Values.kafka.port }}
+            - name: kafka
+              containerPort: {{ .Values.kafka.port }}
+              protocol: TCP
+          {{- if .Values.kafka.resources }}
+          resources:
+            {{- toYaml .Values.kafka.resources | nindent 12 }}
+          {{- end }}

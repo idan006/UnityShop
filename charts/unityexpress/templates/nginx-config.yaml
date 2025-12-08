@@ -2,31 +2,25 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: unityexpress-nginx-config
-  namespace: unityexpress
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "unityexpress.gateway.labels" . | nindent 4 }}
 data:
   nginx.conf: |
-    worker_processes 1;
-
+    worker_processes {{ .Values.nginx.config.workerProcesses }};
     events {}
-
     http {
       upstream api_upstream {
-        server unityexpress-api.unityexpress.svc.cluster.local:3000;
+        server {{ .Values.nginx.config.apiUpstream }};
       }
-
       upstream web_upstream {
-        server unityexpress-web.unityexpress.svc.cluster.local:80;
+        server {{ .Values.nginx.config.webUpstream }};
       }
-
       server {
-        listen 80;
-
-        # UI
+        listen {{ .Values.nginx.service.port }};
         location / {
           proxy_pass http://web_upstream;
         }
-
-        # API
         location /api/ {
           proxy_pass http://api_upstream;
         }

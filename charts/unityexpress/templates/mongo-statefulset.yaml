@@ -1,27 +1,28 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: unityexpress-mongo
+  name: {{ include "unityexpress.mongo.fullname" . }}
+  namespace: {{ .Values.namespace }}
   labels:
-    {{- include "unityexpress.labels" . | nindent 4 }}
-    app: unityexpress-mongo
+    {{- include "unityexpress.mongo.labels" . | nindent 4 }}
 spec:
   clusterIP: None
   ports:
     - port: {{ .Values.mongo.port }}
       name: mongo
+      protocol: TCP
   selector:
     app: unityexpress-mongo
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: unityexpress-mongo
+  name: {{ include "unityexpress.mongo.fullname" . }}
+  namespace: {{ .Values.namespace }}
   labels:
-    {{- include "unityexpress.labels" . | nindent 4 }}
-    app: unityexpress-mongo
+    {{- include "unityexpress.mongo.labels" . | nindent 4 }}
 spec:
-  serviceName: "unityexpress-mongo"
+  serviceName: {{ include "unityexpress.mongo.fullname" . }}
   replicas: 1
   selector:
     matchLabels:
@@ -29,22 +30,36 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "unityexpress.labels" . | nindent 8 }}
-        app: unityexpress-mongo
+        {{- include "unityexpress.mongo.labels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       containers:
         - name: mongo
           image: {{ .Values.mongo.image }}
+          imagePullPolicy: {{ .Values.mongo.imagePullPolicy }}
           ports:
-            - containerPort: {{ .Values.mongo.port }}
+            - name: mongo
+              containerPort: {{ .Values.mongo.port }}
+              protocol: TCP
           volumeMounts:
             - name: mongo-data
               mountPath: /data/db
+          {{- if .Values.mongo.resources }}
+          resources:
+            {{- toYaml .Values.mongo.resources | nindent 12 }}
+          {{- end }}
   volumeClaimTemplates:
     - metadata:
         name: mongo-data
       spec:
-        accessModes: ["ReadWriteOnce"]
+        accessModes: 
+          - {{ .Values.mongo.persistence.accessMode }}
+        {{- if .Values.mongo.persistence.storageClass }}
+        storageClassName: {{ .Values.mongo.persistence.storageClass }}
+        {{- end }}
         resources:
           requests:
-            storage: {{ .Values.mongo.storage }}
+            storage: {{ .Values.mongo.persistence.size }}

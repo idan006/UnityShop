@@ -88,8 +88,11 @@ deploy: build load
 	helm upgrade --install unityexpress $(CHART) -n $(NS) --create-namespace
 	@echo "$(GREEN)[OK] Deployment finished.$(NC)"
 	@echo ""
+	@echo "$(BLUE)==> Waiting for pods to be ready...$(NC)"
+	@kubectl wait --for=condition=ready pod -l app=unityexpress-gateway -n $(NS) --timeout=120s || true
+	@echo ""
 	@echo "$(BLUE)==> Gateway URL:$(NC)"
-	@minikube service unityexpress-gateway -n $(NS) --url
+	@minikube service unityexpress-gateway -n $(NS) --url || echo "$(YELLOW)Run 'make url' once pods are ready$(NC)"
 	@echo ""
 
 # ===================================================================
@@ -144,6 +147,20 @@ smoke:
 # ===================================================================
 status:
 	kubectl get pods,svc,hpa -n $(NS) -o wide
+
+# ===================================================================
+# Test Helm Templates
+# ===================================================================
+test-templates:
+	@echo "$(BLUE)==> Testing Helm templates...$(NC)"
+	helm lint $(CHART)
+	@echo "$(GREEN)[OK] Lint passed.$(NC)"
+	@echo "$(BLUE)==> Rendering templates...$(NC)"
+	helm template unityexpress $(CHART) -n $(NS) > /tmp/rendered-templates.yaml
+	@echo "$(GREEN)[OK] Templates rendered to /tmp/rendered-templates.yaml$(NC)"
+	@echo "$(BLUE)==> Validating with dry-run...$(NC)"
+	helm install unityexpress $(CHART) -n $(NS) --dry-run --debug | head -100
+	@echo "$(GREEN)[OK] Dry-run validation passed.$(NC)"
 
 # ===================================================================
 # Unit Tests

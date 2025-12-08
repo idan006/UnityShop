@@ -1,35 +1,282 @@
+# =================================================================
+# UnityExpress Helm Chart Values
+# =================================================================
+
+# Project identification
+projectUuid: "unityexpress-1765203965"
+
+# Global namespace
 namespace: unityexpress
+
+# =================================================================
+# API Service Configuration
+# =================================================================
 api:
   image: unityexpress-api:local
+  imagePullPolicy: Never
   replicaCount: 1
   port: 3000
+  
+  # Environment variables
+  env:
+    kafkaTopic: purchases
+    kafkaClientId: unityexpress-api
+    kafkaGroupId: unityexpress-group
+  
+  # Resource limits
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  
+  # Health checks
+  livenessProbe:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 60
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+  
+  readinessProbe:
+    enabled: true
+    path: /ready
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  
+  # Service configuration
+  service:
+    type: NodePort
+    port: 3000
+    targetPort: 3000
+    nodePort: 30030
 
+# =================================================================
+# Web Service Configuration
+# =================================================================
 web:
   image: unityexpress-web:local
+  imagePullPolicy: Never
   replicaCount: 1
   port: 80
+  
+  # Resource limits
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+  
+  # Health checks
+  livenessProbe:
+    enabled: true
+    path: /
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  
+  readinessProbe:
+    enabled: true
+    path: /
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
 
+# =================================================================
+# Gateway (NGINX) Configuration
+# =================================================================
+nginx:
+  enabled: true
+  image: nginx:stable
+  imagePullPolicy: IfNotPresent
+  replicaCount: 1
+  
+  # Resource limits
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "100m"
+  
+  # Service configuration
+  service:
+    type: NodePort
+    port: 80
+    targetPort: 80
+    nodePort: 30080
+  
+  # NGINX configuration
+  config:
+    workerProcesses: 1
+    apiUpstream: unityexpress-api.unityexpress.svc.cluster.local:3000
+    webUpstream: unityexpress-web.unityexpress.svc.cluster.local:80
+
+# =================================================================
+# MongoDB Configuration
+# =================================================================
 mongo:
+  enabled: true
   image: mongo:7.0
+  imagePullPolicy: IfNotPresent
   port: 27017
+  database: unityexpress
+  
+  # Persistence
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 1Gi
+  
+  # DEPRECATED: use persistence.size instead
   storage: 1Gi
+  
+  # Resource limits
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  
+  # External MongoDB (if using external database)
+  external:
+    enabled: false
+    uri: ""
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 27017
 
+# =================================================================
+# Kafka Configuration
+# =================================================================
 kafka:
-  image: "confluentinc/cp-kafka:7.5.0"
-  zookeeperImage: "confluentinc/cp-zookeeper:7.5.0"
+  enabled: true
+  image: confluentinc/cp-kafka:7.5.0
+  imagePullPolicy: IfNotPresent
   port: 9092
+  replicaCount: 1
+  
+  # DEPRECATED: use zookeeper.image instead
+  zookeeperImage: confluentinc/cp-zookeeper:7.5.0
+  # DEPRECATED: use zookeeper.port instead
   zookeeperPort: 2181
+  
+  # Zookeeper configuration
+  zookeeper:
+    enabled: true
+    image: confluentinc/cp-zookeeper:7.5.0
+    port: 2181
+    
+    env:
+      clientPort: 2181
+      tickTime: 2000
+      initLimit: 5
+      syncLimit: 2
+  
+  # Kafka environment variables
+  env:
+    offsetsTopicReplicationFactor: 1
+    transactionStateLogReplicationFactor: 1
+    transactionStateLogMinIsr: 1
+    autoCreateTopicsEnable: true
+  
+  # Resource limits
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  
+  # External Kafka (if using external Kafka)
+  external:
+    enabled: false
+    brokers: ""
+  
+  # Secret configuration
+  secret:
+    saslEnabled: false
+    tlsEnabled: false
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 9092
 
+# =================================================================
+# KEDA Autoscaling Configuration (replaces hpa)
+# =================================================================
+# DEPRECATED: use keda instead
 hpa:
   enabled: true
   minReplicas: 1
   maxReplicas: 10
-  
-nginx:
-  enabled: true
-  service:
-    type: NodePort
-    nodePort: 30080
-  image: nginx:stable
 
-projectUuid: "unityexpress-1765203965"
+keda:
+  enabled: true
+  
+  # API autoscaling
+  api:
+    pollingInterval: 5
+    cooldownPeriod: 30
+    minReplicaCount: 1
+    maxReplicaCount: 10
+    
+    triggers:
+      kafka:
+        topic: purchases
+        consumerGroup: unityexpress-consumer
+        lagThreshold: 5
+
+# =================================================================
+# Monitoring Configuration
+# =================================================================
+monitoring:
+  enabled: true
+  
+  # ServiceMonitor for Prometheus
+  serviceMonitor:
+    enabled: true
+    interval: 10s
+    path: /metrics
+    labels:
+      release: monitoring
+
+# =================================================================
+# Common Configuration
+# =================================================================
+commonAnnotations: {}
+commonLabels: {}
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+securityContext:
+  enabled: false
+  runAsUser: 1000
+  runAsNonRoot: true
+  fsGroup: 1000
+
+serviceAccount:
+  create: false
+  name: ""
+  annotations: {}

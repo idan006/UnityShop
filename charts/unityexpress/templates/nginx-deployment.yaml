@@ -1,42 +1,58 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: unityexpress-gateway
+  name: {{ include "unityexpress.gateway.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "unityexpress.gateway.labels" . | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.nginx.replicaCount }}
   selector:
     matchLabels:
       app: unityexpress-gateway
   template:
     metadata:
       labels:
-        app: unityexpress-gateway
+        {{- include "unityexpress.gateway.labels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       containers:
         - name: nginx
-          image: nginx:stable
+          image: {{ .Values.nginx.image }}
+          imagePullPolicy: {{ .Values.nginx.imagePullPolicy }}
           ports:
-            - containerPort: 80
+            - name: http
+              containerPort: {{ .Values.nginx.service.port }}
+              protocol: TCP
           volumeMounts:
             - name: nginx-config
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf
+          {{- if .Values.nginx.resources }}
+          resources:
+            {{- toYaml .Values.nginx.resources | nindent 12 }}
+          {{- end }}
       volumes:
         - name: nginx-config
           configMap:
             name: unityexpress-nginx-config
-
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: unityexpress-gateway
+  name: {{ include "unityexpress.gateway.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "unityexpress.gateway.labels" . | nindent 4 }}
 spec:
-  type: NodePort
+  type: {{ .Values.nginx.service.type }}
   selector:
     app: unityexpress-gateway
   ports:
     - name: http
-      port: 80
-      targetPort: 80
-      nodePort: 30080
+      port: {{ .Values.nginx.service.port }}
+      targetPort: {{ .Values.nginx.service.targetPort }}
+      nodePort: {{ .Values.nginx.service.nodePort }}
