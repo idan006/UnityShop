@@ -46,8 +46,8 @@ RUN rm -rf /etc/nginx/conf.d/* && \
 # Copy optimized NGINX configuration
 COPY --chown=nginx:nginx nginx.conf /etc/nginx/nginx.conf
 
-# Copy static web content
-COPY --chown=nginx:nginx html/ /usr/share/nginx/html/
+# Copy static web content from public directory
+COPY --chown=nginx:nginx public/ /usr/share/nginx/html/
 
 # Create required directories with proper permissions
 RUN mkdir -p /var/cache/nginx/client_temp \
