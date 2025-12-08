@@ -87,8 +87,10 @@ deploy: build load
 	@echo "$(BLUE)==> Deploying UnityExpress via Helm$(NC)"
 	helm upgrade --install unityexpress $(CHART) -n $(NS) --create-namespace
 	@echo "$(GREEN)[OK] Deployment finished.$(NC)"
-	# Get the gateway URL
-    @echo "$(BLUE)==>  "minikube service unityexpress-gateway -n unityexpress --url "
+	@echo ""
+	@echo "$(BLUE)==> Gateway URL:$(NC)"
+	@minikube service unityexpress-gateway -n $(NS) --url
+	@echo ""
 
 # ===================================================================
 # Destroy everything
@@ -114,6 +116,20 @@ logs:
 	kubectl logs -n $(NS) deploy/unityexpress-api --tail=200 || true
 	kubectl logs -n $(NS) deploy/unityexpress-web --tail=200 || true
 	kubectl logs -n $(NS) deploy/unityexpress-kafka -c kafka --tail=200 || true
+
+# ===================================================================
+# Get UI URL
+# ===================================================================
+url:
+	@echo "$(BLUE)==> Getting gateway URL...$(NC)"
+	@minikube service unityexpress-gateway -n $(NS) --url
+
+# ===================================================================
+# Open UI in browser
+# ===================================================================
+open:
+	@echo "$(BLUE)==> Opening UI in browser...$(NC)"
+	minikube service unityexpress-gateway -n $(NS)
 
 # ===================================================================
 # Smoke Test
@@ -155,6 +171,8 @@ help:
 	@echo "  make destroy       Delete environment"
 	@echo "  make restart       Restart all deployments"
 	@echo "  make logs          Show logs"
+	@echo "  make url           Get gateway URL"
+	@echo "  make open          Open UI in browser"
 	@echo "  make smoke         Run smoke test"
 	@echo "  make status        Show cluster status"
 	@echo "  make unitTests     Run backend tests"
