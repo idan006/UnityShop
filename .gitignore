@@ -1,0 +1,83 @@
+# ============================================================
+# UnityExpress Project —  .gitignore
+# 
+# ============================================================
+
+# ----------------------------
+# Node backend (api-server)
+# ----------------------------
+api-servernode_modules
+api-servernpm-debug.log
+api-serveryarn-error.log
+api-serverpackage-lock.json
+api-server.env
+
+# Build artifacts
+api-serverdist
+api-servertmp
+api-serverlogs
+
+# ----------------------------
+# Web UI (web-server)
+# ----------------------------
+web-servernode_modules
+web-servernpm-debug.log
+web-serveryarn-error.log
+web-serverpackage-lock.json
+web-server.env
+
+# Build artifacts
+web-serverdist
+web-serverbuild
+web-server.cache
+web-serverlogs
+
+# ----------------------------
+# Helm  Kubernetes
+# ----------------------------
+chartsunityexpresscharts
+chartsunityexpresstmp
+chartsunityexpressvalues.schema.json
+
+# kubectl output & helm renders
+.release.yaml
+tmprendered-templates.yaml
+
+# ----------------------------
+# Docker Desktop  Minikube
+# ----------------------------
+minikube.
+.swp
+.DS_Store
+
+# Local docker cache directories (just in case)
+docker-data
+.dockerignore
+
+# ----------------------------
+# Python tooling (tests)
+# ----------------------------
+__pycache__
+.pyc
+scripts.pyc
+
+# ----------------------------
+# OS  Editor  IDE files
+# ----------------------------
+.DS_Store
+Thumbs.db
+
+# VSCode
+.vscode
+.idea
+
+# JetBrains
+.iml
+
+# ----------------------------
+# Logs
+# ----------------------------
+.log
+logs
+unityexpress-api.log
+unityexpress-web.log
