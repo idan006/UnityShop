@@ -1,43 +1,41 @@
-name: UnityExpress CI
-
+name: UnityExpress Tests
 on:
   push:
   pull_request:
-
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-
+      
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-
+      
       - name: Install dependencies (backend)
-        run: cd unityexpress-api && npm install
-
+        run: cd api-server && npm install
+      
       - name: Install dependencies (web)
-        run: cd web && npm install
-
+        run: cd web-server && npm install
+      
       - name: Run backend tests
-        run: cd unityexpress-api && npm test
-
+        run: cd api-server && npm test
+      
       - name: Run UI tests
-        run: cd web && npm test
-
-      - name: Collect coverage
-        run: |
-          cd unityexpress-api && npm test -- --coverage
-          cd ../web && npm test -- --coverage
-
+        run: cd web-server && npm test
+      
+      - name: Collect coverage (backend)
+        run: cd api-server && npm test -- --coverage
+      
+      - name: Collect coverage (web)
+        run: cd web-server && npm test -- --coverage
+      
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
           name: coverage-reports
           path: |
-            unityexpress-api/coverage
-            web/coverage
+            api-server/coverage
+            web-server/coverage
