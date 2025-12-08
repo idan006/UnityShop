@@ -52,3 +52,29 @@ jobs:
           helm template unityexpress charts/unityexpress \
             --set api.image=ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')/unityexpress-api:latest \
             --set web.image=ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')/unityexpress-web:latest
+     # In .github/workflows/ci.yml
+
+      - name: Set version
+        id: version
+        run: |
+          # Use git commit SHA as version
+          VERSION="${GITHUB_SHA::8}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Build API image
+        run: |
+          REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          VERSION=${{ steps.version.outputs.version }}
+          docker build -t ghcr.io/${REPO}/unityexpress-api:${VERSION} ./api-server
+          docker build -t ghcr.io/${REPO}/unityexpress-api:latest ./api-server
+          docker push ghcr.io/${REPO}/unityexpress-api:${VERSION}
+          docker push ghcr.io/${REPO}/unityexpress-api:latest
+
+      - name: Helm dry-run deploy
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          helm template unityexpress charts/unityexpress \
+            --set appVersion=${VERSION} \
+            --set imageTag=${VERSION} \
+            --set api.image=ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')/unityexpress-api:${VERSION}

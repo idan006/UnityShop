@@ -5,6 +5,12 @@
 # Project identification
 projectUuid: "unityexpress-1765203965"
 
+# Application version (update this with each release)
+appVersion: "1.0.0"
+
+# Image tag (can be overridden in CI/CD)
+imageTag: "latest"
+
 # Global namespace
 namespace: unityexpress
 

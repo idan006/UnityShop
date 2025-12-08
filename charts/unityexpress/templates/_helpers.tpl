@@ -34,7 +34,9 @@ Common labels (includes your project UUID)
 {{- define "unityexpress.labels" -}}
 helm.sh/chart: {{ include "unityexpress.chart" . }}
 {{ include "unityexpress.selectorLabels" . }}
-{{- if .Chart.AppVersion }}
+{{- if .Values.appVersion }}
+app.kubernetes.io/version: {{ .Values.appVersion | quote }}
+{{- else if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
@@ -216,6 +218,8 @@ Config checksum annotation for triggering pod restarts
 */}}
 {{- define "unityexpress.configChecksum" -}}
 checksum/config: {{ include (print $.Template.BasePath "/kafka-secret.yaml") . | sha256sum }}
+app-version: {{ .Values.appVersion | quote }}
+deployed-at: {{ now | date "2006-01-02T15:04:05Z07:00" | quote }}
 {{- end }}
 
 {{/*
