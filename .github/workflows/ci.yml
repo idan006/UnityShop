@@ -38,13 +38,13 @@ jobs:
       - name: Build API image
         run: |
           REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          docker build -t ghcr.io/${REPO}/unityexpress-api:latest api-server/
+          docker build -t ghcr.io/${REPO}/unityexpress-api:latest ./api-server
           docker push ghcr.io/${REPO}/unityexpress-api:latest
       
       - name: Build Web image
         run: |
           REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          docker build -t ghcr.io/${REPO}/unityexpress-web:latest web-server/
+          docker build -t ghcr.io/${REPO}/unityexpress-web:latest ./web-server
           docker push ghcr.io/${REPO}/unityexpress-web:latest
       
       - name: Helm dry-run deploy (no cluster needed)
