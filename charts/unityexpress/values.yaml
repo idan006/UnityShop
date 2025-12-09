@@ -147,7 +147,6 @@ mongo:
     accessMode: ReadWriteOnce
     size: 1Gi
   
-  # DEPRECATED: use persistence.size instead
   storage: 1Gi
   
   # Resource limits
@@ -228,9 +227,8 @@ kafka:
     port: 9092
 
 # =================================================================
-# KEDA Autoscaling Configuration (replaces hpa)
+# KEDA Autoscaling Configuration 
 # =================================================================
-# DEPRECATED: use keda instead
 hpa:
   enabled: true
   minReplicas: 1
