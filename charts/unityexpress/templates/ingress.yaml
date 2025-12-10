@@ -1,31 +1,28 @@
+{{- if .Values.ingress.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: unityexpress-ingress
-  namespace: unityexpress
+  name: {{ include "unityexpress.fullname" . }}-ingress
+  namespace: {{ .Values.namespace | default .Release.Namespace }}
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /$1
+{{ toYaml .Values.ingress.annotations | indent 4 }}
 spec:
-  ingressClassName: nginx
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
   rules:
-  - host: ui.localdev
+{{- range .Values.ingress.hosts }}
+  - host: {{ .host }}
     http:
       paths:
-      - path: /(.*)
-        pathType: Prefix
+{{- range .paths }}
+      - path: {{ .path }}
+        pathType: {{ .pathType }}
         backend:
           service:
-            name: unityexpress-web
+            name: {{ .service.name }}
             port:
-              number: 80
-
-  - host: api.localdev
-    http:
-      paths:
-      - path: /(.*)
-        pathType: Prefix
-        backend:
-          service:
-            name: unityexpress-api
-            port:
-              number: 80
+              number: {{ .service.port }}
+{{- end }}
+{{- end }}
+{{- end }}

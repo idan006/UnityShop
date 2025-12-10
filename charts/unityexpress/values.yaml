@@ -229,13 +229,21 @@ kafka:
 # =================================================================
 # KEDA Autoscaling Configuration 
 # =================================================================
-hpa:
-  enabled: true
-  minReplicas: 1
-  maxReplicas: 10
 
 keda:
   enabled: true
+
+  pollingInterval: 10
+  cooldownPeriod: 30
+
+  minReplicaCount: 1
+  maxReplicaCount: 10
+
+  kafka:
+    broker: "unityexpress-kafka:9092"
+    topic: "purchases"
+    consumerGroup: "unityexpress-group"
+    lagThreshold: "10"
   
   # API autoscaling
   api:
@@ -284,3 +292,24 @@ serviceAccount:
   create: false
   name: ""
   annotations: {}
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+  hosts:
+    - host: ui.localdev
+      paths:
+        - path: /(.*)
+          pathType: Prefix
+          service:
+            name: unityexpress-web
+            port: 80
+    - host: api.localdev
+      paths:
+        - path: /(.*)
+          pathType: Prefix
+          service:
+            name: unityexpress-api
+            port: 80

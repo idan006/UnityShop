@@ -1,5 +1,8 @@
 const mongoose = require("mongoose");
 const { config } = require("./config");
+const { createLogger } = require("./logger");
+
+const logger = createLogger("MongoDB");
 
 const purchaseSchema = new mongoose.Schema(
   {
@@ -21,13 +24,13 @@ async function connectMongo() {
     process.env.MONGO_URL ||
     config.mongoUri;
 
-  console.log("[Mongo] Connecting to:", uri);
+  logger.info("Connecting to MongoDB");
 
   await mongoose.connect(uri, {
     serverSelectionTimeoutMS: 5000
   });
 
-  console.log("[Mongo] Connected");
+  logger.info("MongoDB connected successfully");
 }
 
 module.exports = { Purchase, connectMongo };

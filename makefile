@@ -2,43 +2,12 @@
 # UnityExpress Makefile — Docker Desktop + Minikube (Docker Driver)
 # ===================================================================
 
-SHELL := /bin/bash
+# UnityExpress Makefile — Docker Desktop + Minikube (Docker Driver)
 
-# Universal ANSI color support (works on Linux, macOS, Windows Git Bash, WSL)
-BLUE  := $(shell printf "\033[1;34m")
-GREEN := $(shell printf "\033[0;32m")
-YELLOW:= $(shell printf "\033[1;33m")
-RED   := $(shell printf "\033[0;31m")
-NC    := $(shell printf "\033[0m")
+# Simple Makefile targets for building images, loading into Minikube, and
+# deploying via Helm. Uses plain echo instead of shell-specific color helpers
+# so it is easier to run from different shells/platforms.
 
-ECHO := printf
-
-# -----------------------------
-# Cross-platform Python detection
-# -----------------------------
-PYTHON := $(shell \
-	if command -v python3 >/dev/null 2>&1; then echo python3; \
-	elif command -v python >/dev/null 2>&1; then echo python; \
-	elif command -v py >/dev/null 2>&1; then echo "py -3"; \
-	else echo ""; fi \
-)
-
-ifeq ($(PYTHON),)
-$(error No Python interpreter found. Install Python before running make targets)
-endif
-
-# -----------------------------
-# Jest runner detection
-# -----------------------------
-JEST := $(shell \
-	if command -v npx >/dev/null 2>&1; then echo "npx jest"; \
-	elif command -v jest >/dev/null 2>&1; then echo "jest"; \
-	else echo ""; fi \
-)
-
-# -----------------------------
-# Variables
-# -----------------------------
 NS := unityexpress
 CHART := ./charts/unityexpress
 IMAGES := unityexpress-api:local unityexpress-web:local
@@ -47,27 +16,27 @@ IMAGES := unityexpress-api:local unityexpress-web:local
 # Docker Desktop Image Build
 # ===================================================================
 build:
-	@$(ECHO) "$(BLUE)==> Building Docker images locally (Docker Desktop)$(NC)\n"
+	@echo "==> Building Docker images locally (Docker Desktop)"
 	docker build -t unityexpress-api:local ./api-server
 	docker build -t unityexpress-web:local ./web-server
-	@$(ECHO) "$(GREEN)[OK] Images built locally.$(NC)\n"
+	@echo "[OK] Images built locally."
 
 # ===================================================================
 # Load Images Into Minikube Docker Runtime
 # ===================================================================
 load:
-	@$(ECHO) "$(BLUE)==> Loading images into Minikube$(NC)\n"
-	for img in $(IMAGES); do \
-		echo "Loading $$img ..."; \
-		minikube image load $$img || { echo "$(RED)Failed to load $$img$(NC)"; exit 1; }; \
-	done
-	@$(ECHO) "$(GREEN)[OK] Images loaded into Minikube.$(NC)\n"
+	@echo "==> Loading images into Minikube"
+	@echo "Loading unityexpress-api:local ..."
+	minikube image load unityexpress-api:local || { echo "Failed to load unityexpress-api:local"; exit 1; }
+	@echo "Loading unityexpress-web:local ..."
+	minikube image load unityexpress-web:local || { echo "Failed to load unityexpress-web:local"; exit 1; }
+	@echo "[OK] Images loaded into Minikube."
 
 # ===================================================================
 # Deploy With Helm
 # ===================================================================
 deploy: build load
-	@$(ECHO) "$(BLUE)==> Ensuring required CRDs exist (KEDA + Prometheus Operator)...$(NC)\n"
+	@echo "==> Ensuring required CRDs exist (KEDA + Prometheus Operator)..."
 
 	kubectl get crd scaledobjects.keda.sh >/dev/null 2>&1 || \
 	    kubectl apply -f https://raw.githubusercontent.com/kedacore/keda/v2.14.0/config/crd/bases/keda.sh_scaledobjects.yaml
@@ -84,36 +53,36 @@ deploy: build load
 	kubectl get crd podmonitors.monitoring.coreos.com >/dev/null 2>&1 || \
 	    kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.74.0/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml
 
-	@$(ECHO) "$(GREEN)[OK] CRDs confirmed.$(NC)\n"
-	@$(ECHO) "$(BLUE)==> Deploying UnityExpress via Helm$(NC)\n"
+	@echo "[OK] CRDs confirmed."
+	@echo "==> Deploying UnityExpress via Helm"
 
 	helm upgrade --install unityexpress $(CHART) -n $(NS) --create-namespace
 
-	@$(ECHO) "$(GREEN)[OK] Deployment finished.$(NC)\n"
+	@echo "[OK] Deployment finished."
 
-	@$(ECHO) "$(BLUE)==> Waiting for gateway pod...$(NC)\n"
+	@echo "==> Waiting for gateway pod..."
 	kubectl wait --for=condition=ready pod -l app=unityexpress-gateway -n $(NS) --timeout=120s || true
 
-	@$(ECHO) "$(BLUE)==> Gateway URL:$(NC)\n"
+	@echo "==> Gateway URL:"
 	@minikube service unityexpress-gateway -n $(NS) --url || \
-	  $(ECHO) "$(YELLOW)Pods not ready yet. Run 'make url' later.$(NC)\n"
+	  @echo "Pods not ready yet. Run 'make url' later."
 
 # ===================================================================
 # Destroy all UnityExpress resources
 # ===================================================================
 destroy:
-	@$(ECHO) "$(RED)==> Destroying UnityExpress$(NC)\n"
+	@echo "==> Destroying UnityExpress"
 	helm uninstall unityexpress -n $(NS) || true
 	kubectl delete namespace $(NS) --ignore-not-found=true
-	@$(ECHO) "$(GREEN)[OK] Environment destroyed.$(NC)\n"
+	@echo "[OK] Environment destroyed."
 
 # ===================================================================
 # Restart Deployments
 # ===================================================================
 restart:
-	@$(ECHO) "$(BLUE)==> Restarting deployments...$(NC)\n"
+	@echo "==> Restarting deployments..."
 	kubectl rollout restart deploy -n $(NS)
-	@$(ECHO) "$(GREEN)[OK] Restart complete.$(NC)\n"
+	@echo "[OK] Restart complete."
 
 # ===================================================================
 # Logs
@@ -127,23 +96,24 @@ logs:
 # Get Gateway URL
 # ===================================================================
 url:
-	@$(ECHO) "$(BLUE)==> Getting gateway URL$(NC)\n"
+	@echo "==> Getting gateway URL"
 	@minikube service unityexpress-gateway -n $(NS) --url
 
 # ===================================================================
 # Open Browser
 # ===================================================================
+
 open:
-	@$(ECHO) "$(BLUE)==> Opening UI in browser$(NC)\n"
+	@echo "==> Opening UI in browser"
 	minikube service unityexpress-gateway -n $(NS)
 
 # ===================================================================
 # Smoke Test
 # ===================================================================
 smoke:
-	@$(ECHO) "$(YELLOW)==> Running Smoke Test$(NC)\n"
-	$(PYTHON) ./scripts/smoke_test.py || { $(ECHO) "$(RED)Smoke test failed$(NC)\n"; exit 1; }
-	@$(ECHO) "$(GREEN)[OK] Smoke test passed.$(NC)\n"
+	@echo "==> Running Smoke Test"
+	python ./scripts/smoke_test.py || { echo "Smoke test failed"; exit 1; }
+	@echo "[OK] Smoke test passed."
 
 # ===================================================================
 # Status
@@ -151,46 +121,23 @@ smoke:
 status:
 	kubectl get pods,svc,hpa -n $(NS) -o wide
 
-# ===================================================================
-# Helm Template Tests
-# ===================================================================
-test-templates:
-	@$(ECHO) "$(BLUE)==> Helm lint$(NC)\n"
-	helm lint $(CHART)
-	@$(ECHO) "$(GREEN)[OK] Lint passed.$(NC)\n"
-
-	@$(ECHO) "$(BLUE)==> Rendering templates$(NC)\n"
-	helm template unityexpress $(CHART) -n $(NS) > /tmp/rendered-templates.yaml
-	@$(ECHO) "$(GREEN)[OK] Templates saved to /tmp/rendered-templates.yaml$(NC)\n"
-
-# ===================================================================
-# Unit Tests
-# ===================================================================
-unitTests:
-	@if [ -z "$(JEST)" ]; then $(ECHO) "$(RED)Jest missing$(NC)\n"; exit 1; fi
-	$(JEST) --runInBand
-	@$(ECHO) "$(GREEN)[OK] Unit tests passed.$(NC)\n"
-
-# ===================================================================
-# Mock Tests
-# ===================================================================
-mock:
-	@if [ -z "$(JEST)" ]; then $(ECHO) "$(RED)Jest missing$(NC)\n"; exit 1; fi
-	$(JEST) --config web/jest.config.js --runInBand
-	@$(ECHO) "$(GREEN)[OK] Mock tests completed.$(NC)\n"
+install-keda:
+	helm repo add kedacore https://kedacore.github.io/charts
+	helm upgrade --install keda kedacore/keda -n keda --create-namespace
 
 # ===================================================================
 # Help
 # ===================================================================
+
 help:
-	@$(ECHO) "\nUnityExpress Makefile Commands:\n"
-	@$(ECHO) "  make deploy        Build + Load + Deploy"
-	@$(ECHO) "  make destroy       Delete environment"
-	@$(ECHO) "  make restart       Restart deployments"
-	@$(ECHO) "  make logs          Show service logs"
-	@$(ECHO) "  make url           Get gateway URL"
-	@$(ECHO) "  make open          Open UI in browser"
-	@$(ECHO) "  make smoke         Run smoke test"
-	@$(ECHO) "  make status        Show cluster status"
-	@$(ECHO) "  make unitTests     Run backend tests"
-	@$(ECHO) "  make mock          Run UI mock tests\n"
+	@echo "\nUnityExpress Makefile Commands:\n"
+	@echo "  make deploy        Build + Load + Deploy"
+	@echo "  make destroy       Delete environment"
+	@echo "  make restart       Restart deployments"
+	@echo "  make logs          Show service logs"
+	@echo "  make url           Get gateway URL"
+	@echo "  make open          Open UI in browser"
+	@echo "  make smoke         Run smoke test"
+	@echo "  make status        Show cluster status"
+	@echo "  make unitTests     Run backend tests"
+	@echo "  make mock          Run UI mock tests\n"

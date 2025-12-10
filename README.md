@@ -1,7 +1,8 @@
 # UnityExpress – Cloud-Native Event-Driven Demo Platform
 
-A complete, production-style microservices project showcasing Kubernetes, Helm, CI/CD patterns, Kafka event streaming, MongoDB persistence, autoscaling with KEDA, NGINX gateway routing, and Docker-based local development.
-UnityExpress is intentionally built as a **Senior DevOps Engineer portfolio project**, demonstrating modern cloud-native patterns end to end.
+A complete, production-style microservices project showcasing Kubernetes, Helm, 
+CI/CD patterns, Kafka event streaming, MongoDB persistence, 
+autoscaling with KEDA, NGINX gateway routing, and Docker-based local development.
 
 ---
 
@@ -143,3 +144,14 @@ graph TB
             
             subgraph "Services"
                 API
+				
+
+```
+
+### Keda configuration
+
+```mermaid
+
+KEDA automatically scales API Deployment up and down based on Kafka queue lag, instead of CPU/memory.
+If Kafka starts to accumulate messages (purchases), KEDA detects the backlog and increases API replicas.
+When the lag disappears, KEDA scales the API back down to 1

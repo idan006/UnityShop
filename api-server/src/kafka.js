@@ -1,12 +1,15 @@
 // api-server/src/kafka.js
 const { Kafka } = require("kafkajs");
 const { config } = require("./config");
+const { createLogger } = require("./logger");
 const { 
   kafkaMessagesPublished,
   kafkaPublishDuration,
   kafkaConnectionStatus,
   kafkaPublishErrors
 } = require("./metrics");
+
+const logger = createLogger("Kafka");
 
 let kafka = null;
 let producer = null;
@@ -41,7 +44,7 @@ async function tryConnectKafka() {
   
   try {
     initKafka();
-    console.log("[Kafka] Connecting...");
+    logger.info("Connecting to Kafka", { brokers: config.kafkaBrokers, clientId: config.kafkaClientId });
     
     await producer.connect();
     await consumer.connect();
@@ -55,22 +58,19 @@ async function tryConnectKafka() {
       eachMessage: async ({ topic, partition, message }) => {
         try {
           const value = message.value.toString();
-          console.log(`[Kafka] Consumed from ${topic} [${partition}]:`, value);
-          
-          // Track consumed messages (optional)
-          // consumedMessagesCounter.labels(topic).inc();
+          logger.debug("Message consumed", { topic, partition, messageSize: value.length });
         } catch (err) {
-          console.error("[Kafka] Consume error:", err.message);
+          logger.error("Consume error", { message: err.message });
         }
       }
     });
     
     kafkaReady = true;
     kafkaConnectionStatus.set(1);
-    console.log("[Kafka] READY");
+    logger.info("Kafka ready");
     
   } catch (err) {
-    console.warn("[Kafka] Connection failed (non-fatal):", err.message);
+    logger.warn("Kafka connection failed (non-fatal, will retry)", { message: err.message });
     kafkaConnectionStatus.set(0);
     kafkaPublishErrors.labels(config.kafkaTopic, 'connection_error').inc();
   }
@@ -89,18 +89,18 @@ function setupKafkaEventHandlers() {
   if (!producer) return;
   
   producer.on('producer.connect', () => {
-    console.log('[Kafka] Producer connected');
+    logger.info("Kafka producer connected");
     kafkaConnectionStatus.set(1);
   });
   
   producer.on('producer.disconnect', () => {
-    console.log('[Kafka] Producer disconnected');
+    logger.warn("Kafka producer disconnected");
     kafkaConnectionStatus.set(0);
     kafkaReady = false;
   });
   
   producer.on('producer.network.request_timeout', ({ payload }) => {
-    console.warn('[Kafka] Request timeout:', payload);
+    logger.warn("Kafka request timeout");
     kafkaPublishErrors.labels(config.kafkaTopic, 'timeout').inc();
   });
 }
@@ -117,7 +117,7 @@ async function publishPurchase(purchase) {
   const startTime = Date.now();
   
   if (!kafkaReady) {
-    console.warn("[Kafka] Not ready — skipping publish");
+    logger.debug("Kafka not ready, skipping publish");
     kafkaMessagesPublished.labels(config.kafkaTopic, 'skipped').inc();
     return;
   }
@@ -149,7 +149,7 @@ async function publishPurchase(purchase) {
     kafkaMessagesPublished.labels(config.kafkaTopic, 'success').inc();
     kafkaPublishDuration.labels(config.kafkaTopic, 'success').observe(duration);
     
-    console.log(`[Kafka] Published purchase ${purchase._id} in ${duration}s`);
+    logger.debug("Purchase published to Kafka", { purchaseId: purchase._id, durationSeconds: duration });
     
   } catch (err) {
     const duration = (Date.now() - startTime) / 1000;
@@ -163,13 +163,14 @@ async function publishPurchase(purchase) {
       kafkaPublishErrors.labels(config.kafkaTopic, 'connection_error').inc();
       kafkaConnectionStatus.set(0);
       kafkaReady = false;
+      logger.error("Kafka connection error", { message: err.message });
     } else if (err.name === 'KafkaJSRequestTimeoutError') {
       kafkaPublishErrors.labels(config.kafkaTopic, 'timeout').inc();
+      logger.warn("Kafka timeout", { message: err.message });
     } else {
       kafkaPublishErrors.labels(config.kafkaTopic, 'unknown').inc();
+      logger.error("Kafka publish error", { message: err.message });
     }
-    
-    console.warn("[Kafka] Publish failed (non-fatal):", err.message);
   }
 }
 
@@ -178,16 +179,16 @@ async function publishPurchase(purchase) {
 // ---------------------------------------------
 async function disconnectKafka() {
   if (kafkaReady && producer && consumer) {
-    console.log('[Kafka] Disconnecting...');
+    logger.info("Disconnecting from Kafka");
     try {
       await Promise.all([
         producer.disconnect(),
         consumer.disconnect()
       ]);
       kafkaConnectionStatus.set(0);
-      console.log('[Kafka] Disconnected');
+      logger.info("Kafka disconnected");
     } catch (err) {
-      console.error('[Kafka] Disconnect error:', err.message);
+      logger.error("Kafka disconnect error", { message: err.message });
     }
   }
 }

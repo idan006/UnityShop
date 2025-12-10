@@ -17,4 +17,30 @@ const config = {
   projectUuid: process.env.PROJECT_UUID || "UNKNOWN"
 };
 
-module.exports = { config };
+// Validate critical configuration at startup
+function validateConfig() {
+  const errors = [];
+
+  // Check port is valid
+  if (isNaN(config.port) || config.port < 1 || config.port > 65535) {
+    errors.push("PORT must be a valid port number (1-65535)");
+  }
+
+  // Check MongoDB URI is provided
+  if (!config.mongoUri || config.mongoUri.trim() === "") {
+    errors.push("MONGO_URI is required");
+  }
+
+  // Check Kafka brokers are provided
+  if (!config.kafkaBrokers || config.kafkaBrokers.length === 0) {
+    errors.push("KAFKA_BROKERS must be provided");
+  }
+
+  if (errors.length > 0) {
+    console.error("Configuration validation failed:");
+    errors.forEach(err => console.error(`  - ${err}`));
+    process.exit(1);
+  }
+}
+
+module.exports = { config, validateConfig };

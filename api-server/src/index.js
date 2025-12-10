@@ -2,10 +2,18 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const { config } = require("./config");
+const { config, validateConfig } = require("./config");
+const { createLogger } = require("./logger");
 const { publishPurchase } = require("./kafka");
 const { Purchase } = require("./mongo");
+const { validateCreatePurchase } = require("./validators/purchase");
+const { errorHandler } = require("./middleware/errorHandler");
+
+const logger = createLogger("API");
 const app = express();
+
+// Validate configuration before starting
+validateConfig();
 
 app.use(cors());
 app.use(express.json());
@@ -27,23 +35,23 @@ app.get("/ready", (req, res) => {
 // --------------------------------------------------
 // API routes
 // --------------------------------------------------
-app.get("/api/purchases", async (req, res) => {
+app.get("/api/purchases", async (req, res, next) => {
   try {
+    logger.info("Fetching purchases");
     const purchases = await Purchase.find().sort({ createdAt: -1 }).limit(100);
+    logger.info("Purchases fetched successfully", { count: purchases.length });
     res.json({ purchases });
   } catch (err) {
-    console.error("[API] GET /purchases error:", err);
-    res.status(500).json({ error: "Internal server error" });
+    logger.error("GET /api/purchases failed", { message: err.message, stack: err.stack });
+    next(err);
   }
 });
 
-app.post("/api/purchases", async (req, res) => {
+app.post("/api/purchases", validateCreatePurchase, async (req, res, next) => {
   try {
-    const { username, userid, price } = req.body;
+    const { username, userid, price } = req.validatedBody;
 
-    if (!username || !userid || typeof price !== "number") {
-      return res.status(400).json({ error: "Invalid payload" });
-    }
+    logger.info("Creating purchase", { username, userid, price });
 
     const purchase = await Purchase.create({
       username,
@@ -54,46 +62,57 @@ app.post("/api/purchases", async (req, res) => {
 
     // Fire-and-forget Kafka publish (non-blocking)
     publishPurchase(purchase).catch(err => {
-      console.warn("[API] Kafka publish failed:", err.message);
+      logger.warn("Kafka publish failed", { message: err.message, purchaseId: purchase._id });
     });
 
+    logger.info("Purchase created successfully", { purchaseId: purchase._id, username });
     res.status(201).json({ purchase });
   } catch (err) {
-    console.error("[API] POST /purchases error:", err);
-    res.status(500).json({ error: "Internal server error" });
+    logger.error("POST /api/purchases failed", { message: err.message, stack: err.stack });
+    next(err);
   }
 });
+
+// --------------------------------------------------
+// Global error handler (must be last)
+// --------------------------------------------------
+app.use(errorHandler);
 
 // --------------------------------------------------
 // Startup
 // --------------------------------------------------
 async function start() {
   try {
-    console.log("[API] Starting UnityExpress API");
-    console.log("[Mongo] Connecting to:", config.mongoUri);
+    logger.info("Starting UnityExpress API", { port: config.port });
+    logger.info("Connecting to MongoDB", { mongoUri: config.mongoUri.replace(/:\w+@/, ":***@") });
 
     await mongoose.connect(config.mongoUri, {
       serverSelectionTimeoutMS: 30000
     });
 
-    console.log("[Mongo] Connected");
+    logger.info("MongoDB connected successfully");
 
     // Properly await server startup
     await new Promise((resolve, reject) => {
       const server = app.listen(config.port, (err) => {
         if (err) reject(err);
         else {
-          console.log(`[API] Listening on port ${config.port}`);
+          logger.info("API server listening", { port: config.port });
           resolve(server);
         }
       });
     });
 
   } catch (err) {
-    console.error("[API] Startup failed:", err);
-    console.error("[API] Error message:", err.message);
+    logger.error("Startup failed", { message: err.message, stack: err.stack });
     process.exit(1);
   }
 }
 
-start();
+// Export app for testing
+module.exports = { app };
+
+// Start server only if not in test mode
+if (process.env.NODE_ENV !== 'test' && require.main === module) {
+  start();
+}
