@@ -8,6 +8,17 @@ const toastEl = document.getElementById("toast");
 const tableBody = document.getElementById("tableBody");
 
 // ---------------------------------------------------------
+// UUID Generator (v4)
+// ---------------------------------------------------------
+function generateUUID() {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+// ---------------------------------------------------------
 // Toast helper
 // ---------------------------------------------------------
 function toast(message, color = "#43a047") {
@@ -31,15 +42,27 @@ async function api(method, endpoint, body) {
     });
 
     if (!res.ok) {
-      const errText = await res.text();
+      let errText = await res.text();
+      try {
+        const jsonErr = JSON.parse(errText);
+        // If response is JSON with details, format it nicely
+        if (jsonErr.details && Array.isArray(jsonErr.details)) {
+          const details = jsonErr.details.map(d => `${d.field}: ${d.message}`).join(", ");
+          errText = `Validation Error: ${details}`;
+        } else if (jsonErr.error) {
+          errText = jsonErr.error;
+        }
+      } catch (e) {
+        // Not JSON, use text as-is
+      }
       console.error("API ERROR:", errText);
       throw new Error(errText);
     }
 
     return res.json();
   } catch (err) {
-    console.error("API CALL FAILED:", err);
-    toast("API ERROR", "red");
+    console.error("API CALL FAILED:", err.message);
+    toast(`API ERROR: ${err.message}`, "red");
     throw err;
   }
 }
@@ -73,18 +96,37 @@ function renderTable(purchases) {
 // ---------------------------------------------------------
 document.getElementById("buyBtn").addEventListener("click", async () => {
   const username = document.getElementById("username").value.trim();
-  const userid = document.getElementById("userid").value.trim();
-  const price = parseFloat(document.getElementById("price").value);
+  let userid = document.getElementById("userid").value.trim();
+  const priceInput = document.getElementById("price").value.trim();
+  const price = priceInput ? parseFloat(priceInput) : NaN;
 
-  if (!username || !userid || isNaN(price)) {
-    return toast("Please fill all fields", "red");
+  console.log("Buy button clicked:", { username, userid, price, priceInput });
+
+  if (!username || isNaN(price)) {
+    return toast("Please fill username and price fields", "red");
   }
 
+  // Auto-generate UUID if userid is empty
+  if (!userid) {
+    userid = generateUUID();
+    document.getElementById("userid").value = userid;
+  }
+
+  const payload = { username, userid, price };
+  console.log("Sending to API:", payload);
+
   try {
-    await api("POST", "/purchases", { username, userid, price });
+    const result = await api("POST", "/purchases", payload);
+    console.log("API response:", result);
     toast("Purchase added!");
+    // Clear form after successful purchase
+    document.getElementById("username").value = "";
+    document.getElementById("userid").value = generateUUID();
+    document.getElementById("price").value = "";
     loadPurchases();
-  } catch {}
+  } catch (err) {
+    console.error("Buy button error:", err);
+  }
 });
 
 // ---------------------------------------------------------
@@ -115,4 +157,6 @@ document.getElementById("darkModeToggle").addEventListener("click", () => {
 // ---------------------------------------------------------
 // AUTO LOAD ON START
 // ---------------------------------------------------------
+// Initialize userid field with a new UUID on page load
+document.getElementById("userid").value = generateUUID();
 loadPurchases();
